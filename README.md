@@ -34,12 +34,14 @@ npm install @stackbox/cms
 
 ```
 my-worker/
-  site.config.ts   # createSiteConfig({ name, url, ... })
-  worker.ts        # createSite(siteConfig, { pages }) — default export for Cloudflare
+  site.config.ts      # createSiteConfig({ name, url, ... })
+  worker.ts           # createSite(siteConfig, { pages }) — default export for Cloudflare
+  templates/
+    site-template.ts  # shared createTemplate() layouts
   pages/
-    home.ts        # exports homePage
-    blog.ts        # createBlog() + createPage() for listing and posts
-  content/blog/    # markdown posts (read at bundle time)
+    home.ts           # exports homePage
+    blog.ts           # createBlog() + createPage() for listing and posts
+  content/blog/       # markdown posts (read at bundle time)
 ```
 
 ## Quick start
@@ -55,22 +57,29 @@ export default createSiteConfig({
 });
 ```
 
-`pages/home.ts`:
+`templates/site-template.ts`:
 
 ```ts
 import { html } from "@hyperspan/html";
-import { createPage, createTemplate } from "@stackbox/cms";
-import siteConfig from "../site.config.js";
+import { createTemplate } from "@stackbox/cms";
+import siteConfig from "../site.config";
 
-const template = createTemplate({
+export const siteTemplate = createTemplate({
   siteConfig,
   slots: [{ name: "content", options: { required: true, primary: true } }],
-  render({ slots }: { slots: { content: { render: () => unknown } } }): ReturnType<typeof html> {
+  render({ slots }) {
     return html`<main>${slots.content.render()}</main>`;
   },
 });
+```
 
-const homePage = createPage(template, {
+`pages/home.ts`:
+
+```ts
+import { createPage } from "@stackbox/cms";
+import { siteTemplate } from "../templates/site-template";
+
+const homePage = createPage(siteTemplate, {
   path: "/",
   title: "Home",
   slots: { content: ["<p>Welcome to my site.</p>"] },
@@ -83,9 +92,9 @@ export default homePage;
 
 ```ts
 import { createSite } from "@stackbox/cms";
-import siteConfig from "./site.config.js";
-import homePage from "./pages/home.js";
-import aboutPage from "./pages/about.js";
+import siteConfig from "./site.config";
+import homePage from "./pages/home";
+import aboutPage from "./pages/about";
 
 export default createSite(siteConfig, {
   pages: [homePage, aboutPage],
@@ -101,10 +110,9 @@ Deploy with [`wrangler`](https://developers.cloudflare.com/workers/wrangler/). T
 ```ts
 // pages/blog.ts
 import { join } from "node:path";
-import { html } from "@hyperspan/html";
-import { createPage, createTemplate } from "@stackbox/cms";
+import { createPage } from "@stackbox/cms";
 import { createBlog } from "@stackbox/cms/modules/blog";
-import siteConfig from "../site.config.js";
+import { siteTemplate } from "../templates/site-template";
 
 const blog = createBlog({
   contentPath: join(import.meta.dirname, "../content/blog"),
@@ -112,16 +120,8 @@ const blog = createBlog({
   postsPerPage: 10, // optional — omit to put all posts on one listing page
 });
 
-const listingTemplate = createTemplate({
-  siteConfig,
-  slots: [{ name: "content", options: { required: true, primary: true } }],
-  render({ slots }) {
-    return html`<main>${slots.content.render()}</main>`;
-  },
-});
-
 export const blogListingPages = blog.listings.map((listing, index) =>
-  createPage(listingTemplate, {
+  createPage(siteTemplate, {
     path: listing.path,
     title: index === 0 ? "Blog" : `Blog — page ${index + 1}`,
     slots: {
@@ -130,10 +130,8 @@ export const blogListingPages = blog.listings.map((listing, index) =>
   }),
 );
 
-const postTemplate = createTemplate({ /* ... */ });
-
 export const blogPostPages = blog.posts.map((post) =>
-  createPage(postTemplate, {
+  createPage(siteTemplate, {
     path: post.path,
     title: post.title,
     meta: post.meta,
@@ -144,7 +142,7 @@ export const blogPostPages = blog.posts.map((post) =>
 
 ```ts
 // worker.ts
-import { blogListingPages, blogPostPages } from "./pages/blog.js";
+import { blogListingPages, blogPostPages } from "./pages/blog";
 
 export default createSite(siteConfig, {
   pages: [homePage, ...blogListingPages, ...blogPostPages],
@@ -155,7 +153,6 @@ export default createSite(siteConfig, {
 
 ```ts
 import { createBlog } from "@stackbox/cms/modules/blog";
-import heading from "@stackbox/cms/modules/heading";
 ```
 
 ## Development

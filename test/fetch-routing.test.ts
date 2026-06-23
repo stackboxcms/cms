@@ -51,10 +51,10 @@ describe("site.fetch routing", () => {
     assert.match(await res.text(), /<p>about<\/p>/);
   });
 
-  it("returns  04 for unknown pages", async () => {
+  it("returns 404 for unknown pages", async () => {
     const site = createFixtureSite();
     const res = await site.fetch(new Request("https://example.com/missing"));
-    assert.strictEqual(res.status,  400 + 4);
+    assert.strictEqual(res.status, 404);
   });
 
   it("returns 405 for POST", async () => {

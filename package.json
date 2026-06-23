@@ -17,10 +17,6 @@
     "./modules/blog": {
       "types": "./dist/modules/blog/module.d.ts",
       "import": "./dist/modules/blog/module.js"
-    },
-    "./modules/heading": {
-      "types": "./dist/modules/heading/module.d.ts",
-      "import": "./dist/modules/heading/module.js"
     }
   },
   "scripts": {
