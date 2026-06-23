@@ -3,7 +3,12 @@
   "version": "0.0.1",
   "description": "Stackbox CMS engine",
   "type": "module",
-  "license": "MIT",
+  "license": "BSD-3-Clause",
+  "homepage": "https://github.com/stackboxcms/cms",
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/stackboxcms/cms.git"
+  },
   "exports": {
     ".": {
       "types": "./dist/index.d.ts",
@@ -18,16 +23,9 @@
       "import": "./dist/modules/heading/module.js"
     }
   },
-  "bin": {
-    "stackbox-cms": "./bin/stackbox-cms.js"
-  },
-  "files": [
-    "dist",
-    "bin"
-  ],
   "scripts": {
     "build": "tsc -p tsconfig.json",
-    "test": "npm run build && node --import tsx --test test/async-render.test.ts",
+    "test": "npm run build && node --import tsx --test test/*.test.ts",
     "typecheck": "tsc --noEmit -p tsconfig.json",
     "prepublishOnly": "npm run build"
   },

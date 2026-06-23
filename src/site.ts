@@ -1,11 +1,26 @@
-import { resolve } from "node:path";
-import { pathToFileURL } from "node:url";
+import type { SitePage } from "./pages.js";
+import { isPage } from "./pages.js";
+import { renderPage } from "./render-page.js";
+import { normalizePathname } from "./routing.js";
+import { createContext } from "./stackbox/context.js";
 
-export type SiteSettings<
+export type SiteConfig<
+  T extends Record<string, unknown> = Record<string, unknown>,
+> = {
+  readonly __kind: "siteConfig";
+  readonly config: T;
+};
+
+export type Site<
   T extends Record<string, unknown> = Record<string, unknown>,
 > = {
   readonly __kind: "site";
-  readonly config: T;
+  readonly siteConfig: SiteConfig<T>;
+  readonly pages: readonly SitePage[];
+  fetch(
+    request: globalThis.Request,
+    env?: Record<string, unknown>,
+  ): Promise<globalThis.Response>;
 };
 
 export class SiteError extends Error {
@@ -15,44 +30,124 @@ export class SiteError extends Error {
   }
 }
 
-export function createSite<T extends Record<string, unknown>>(
-  config: T,
-): SiteSettings<T> {
+function validateConfigObject(config: unknown, label: string): void {
   if (!config || typeof config !== "object" || Array.isArray(config)) {
-    throw new SiteError("createSite(config): config must be a non-null object");
+    throw new SiteError(`${label}: config must be a non-null object`);
   }
   if (Object.keys(config).length === 0) {
-    throw new SiteError("createSite(config): config must not be empty");
+    throw new SiteError(`${label}: config must not be empty`);
   }
+}
 
+export function createSiteConfig<T extends Record<string, unknown>>(
+  config: T,
+): SiteConfig<T> {
+  validateConfigObject(config, "createSiteConfig(config)");
   return {
-    __kind: "site" as const,
+    __kind: "siteConfig" as const,
     config,
   };
 }
 
-export function isSite(value: unknown): value is SiteSettings {
+export function isSiteConfig(value: unknown): value is SiteConfig {
   return (
     typeof value === "object" &&
     value !== null &&
-    (value as SiteSettings).__kind === "site" &&
-    typeof (value as SiteSettings).config === "object" &&
-    (value as SiteSettings).config !== null &&
-    !Array.isArray((value as SiteSettings).config)
+    (value as SiteConfig).__kind === "siteConfig" &&
+    typeof (value as SiteConfig).config === "object" &&
+    (value as SiteConfig).config !== null &&
+    !Array.isArray((value as SiteConfig).config)
   );
 }
 
-export async function loadSite(siteRoot: string): Promise<SiteSettings> {
-  const sitePath = resolve(siteRoot, "site.ts");
-  const url = pathToFileURL(sitePath).href;
-  const imported = await import(url);
-  const site = imported.default;
+function assertUniquePaths(pages: SitePage[]): void {
+  const seen = new Map<string, string>();
 
-  if (!isSite(site)) {
+  for (const page of pages) {
+    const existing = seen.get(page.path);
+    if (existing) {
+      throw new SiteError(
+        `duplicate page path "${page.path}" (${existing} and ${page.title})`,
+      );
+    }
+    seen.set(page.path, page.title);
+  }
+}
+
+function buildPageMap(pages: readonly SitePage[]): Map<string, SitePage> {
+  const map = new Map<string, SitePage>();
+  for (const page of pages) {
+    map.set(normalizePathname(page.path), page);
+  }
+  return map;
+}
+
+export function createSite<T extends Record<string, unknown>>(
+  siteConfig: SiteConfig<T>,
+  options: { pages: [SitePage, ...SitePage[]] },
+): Site<T> {
+  if (!isSiteConfig(siteConfig)) {
     throw new SiteError(
-      "site.ts must default-export a site from createSite()",
+      "createSite(siteConfig, options): siteConfig must be from createSiteConfig()",
     );
   }
 
-  return site;
+  const { pages } = options;
+  if (!Array.isArray(pages) || pages.length === 0) {
+    throw new SiteError(
+      "createSite(siteConfig, options): pages must be a non-empty array",
+    );
+  }
+
+  for (const page of pages) {
+    if (!isPage(page)) {
+      throw new SiteError(
+        "createSite(siteConfig, options): every page must be from createPage()",
+      );
+    }
+  }
+
+  assertUniquePaths(pages);
+
+  const pageMap = buildPageMap(pages);
+
+  return {
+    __kind: "site" as const,
+    siteConfig,
+    pages,
+    async fetch(request, env = {}) {
+      const ctx = createContext(request, env);
+      const method = ctx.req.method;
+
+      if (method !== "GET" && method !== "HEAD") {
+        return ctx.res.text("Method Not Allowed", { status: 405 });
+      }
+
+      const pathname = normalizePathname(ctx.req.url.pathname);
+      const page = pageMap.get(pathname);
+
+      if (!page) {
+        return ctx.res.notFound();
+      }
+
+      const html = await renderPage(page, siteConfig, ctx);
+
+      if (method === "HEAD") {
+        return ctx.res.html("", { status: 200 });
+      }
+
+      return ctx.res.html(html);
+    },
+  };
+}
+
+export function isSite(value: unknown): value is Site {
+  return (
+    typeof value === "object" &&
+    value !== null &&
+    (value as Site).__kind === "site" &&
+    isSiteConfig((value as Site).siteConfig) &&
+    Array.isArray((value as Site).pages) &&
+    typeof (value as Site).fetch === "function"
+  );
 }

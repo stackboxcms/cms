@@ -1,5 +1,5 @@
-import { isModule, type Module } from "./modules.js";
-import type { SiteSettings } from "./site.js";
+import type { SiteConfig } from "./site.js";
+import type { Stackbox } from "./stackbox/context.js";
 import {
   isTemplate,
   type SlotDefinition,
@@ -26,8 +26,8 @@ export type PageMeta = {
 };
 
 export type RenderContext = {
-  siteRoot: string;
-  site: SiteSettings;
+  siteConfig: SiteConfig;
+  ctx?: Stackbox.Context;
 };
 
 export type Page<
@@ -64,11 +64,6 @@ export function toPageRenderView({
   return view;
 }
 
-export type PageSource = {
-  readonly __kind: "pageSource";
-  resolve(ctx: RenderContext): SitePage[] | Promise<SitePage[]>;
-};
-
 export function isPage(value: unknown): value is Page {
   return (
     typeof value === "object" &&
@@ -81,15 +76,6 @@ export function isPage(value: unknown): value is Page {
     (value as Page).title.length > 0 &&
     typeof (value as Page).slots === "object" &&
     (value as Page).slots !== null
-  );
-}
-
-export function isPageSource(value: unknown): value is PageSource {
-  return (
-    typeof value === "object" &&
-    value !== null &&
-    (value as PageSource).__kind === "pageSource" &&
-    typeof (value as PageSource).resolve === "function"
   );
 }
 
@@ -107,7 +93,8 @@ function validatePagePath(path: string): void {
   if (path.includes("..")) {
     throw new PageValidationError("path must not contain '..'");
   }
-  if (/\.[a-zA-Z0-9]+$/.test(path)) {
+  const lastSegment = path.split("/").pop() ?? "";
+  if (lastSegment.includes(".")) {
     throw new PageValidationError("path must not include a file extension");
   }
 }
@@ -142,22 +129,6 @@ function validatePageSlotContent(
       }
     }
   }
-}
-
-export function createPageSource<TOptions>(def: {
-  resolve(
-    options: TOptions,
-    ctx: RenderContext,
-  ): SitePage[] | Promise<SitePage[]>;
-}): (options: TOptions) => PageSource {
-  if (typeof def.resolve !== "function") {
-    throw new Error("createPageSource(def): resolve is required");
-  }
-
-  return (options: TOptions) => ({
-    __kind: "pageSource" as const,
-    resolve: (ctx) => def.resolve(options, ctx),
-  });
 }
 
 export function createPage(

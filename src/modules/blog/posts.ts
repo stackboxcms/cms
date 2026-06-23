@@ -1,7 +1,6 @@
 import { readFileSync, readdirSync } from "node:fs";
 import { basename, extname, join, resolve } from "node:path";
 import { marked } from "marked";
-import type { RenderContext } from "../../pages.js";
 
 export type BlogPost = {
   slug: string;
@@ -11,9 +10,11 @@ export type BlogPost = {
   bodyHtml: string;
 };
 
-export type BlogDiscoverOptions = {
+export type BlogOptions = {
   contentPath: string;
   pathPrefix: string;
+  /** Max posts per listing page. Omit to put all posts on one page. */
+  postsPerPage?: number;
 };
 
 function parseFrontmatter(raw: string): {
@@ -44,11 +45,8 @@ function parseFrontmatter(raw: string): {
   return { meta, body };
 }
 
-export function discoverPosts(
-  options: BlogDiscoverOptions,
-  ctx: RenderContext,
-): BlogPost[] {
-  const absoluteDir = resolve(ctx.siteRoot, options.contentPath);
+export function loadPosts(options: BlogOptions): BlogPost[] {
+  const absoluteDir = resolve(options.contentPath);
   const files = readdirSync(absoluteDir)
     .filter((name) => extname(name) === ".md")
     .sort();
@@ -58,12 +56,13 @@ export function discoverPosts(
     const { meta, body } = parseFrontmatter(raw);
     const slug = meta.slug ?? basename(filename, ".md");
     const title = meta.title ?? slug;
+    const prefix = options.pathPrefix.replace(/\/+$/, "");
 
     return {
       slug,
       title,
       description: meta.description,
-      path: `${options.pathPrefix}/${slug}`,
+      path: `${prefix}/${slug}`,
       bodyHtml: marked.parse(body) as string,
     };
   });

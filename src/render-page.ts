@@ -1,9 +1,12 @@
 import { renderAsync } from "@hyperspan/html";
-import { resolve } from "node:path";
-import { pathToFileURL } from "node:url";
-import { isPage, type SitePage, type RenderContext, toPageRenderView } from "./pages.js";
-import type { SiteSettings } from "./site.js";
-import { PageValidationError } from "./pages.js";
+import {
+  type SitePage,
+  type RenderContext,
+  toPageRenderView,
+  PageValidationError,
+} from "./pages.js";
+import type { SiteConfig } from "./site.js";
+import type { Stackbox } from "./stackbox/context.js";
 import { slotHasContent } from "./slot-content.js";
 import { buildPageSlots, RenderError } from "./slot-handle.js";
 import { renderStandardHead } from "./render-head.js";
@@ -23,14 +26,14 @@ function validateRequiredSlots(page: SitePage): void {
 
 export async function renderPage(
   page: SitePage,
-  siteRoot: string,
-  site: SiteSettings,
+  siteConfig: SiteConfig,
+  ctx?: Stackbox.Context,
 ): Promise<string> {
   validateRequiredSlots(page);
 
-  const ctx: RenderContext = { siteRoot, site };
+  const renderCtx: RenderContext = { siteConfig, ctx };
 
-  const slots = buildPageSlots(page, ctx);
+  const slots = buildPageSlots(page, renderCtx);
 
   const head = renderStandardHead({
     title: page.template.formatPageTitle(page.title),
@@ -40,28 +43,9 @@ export async function renderPage(
   return renderAsync(
     page.template.render({
       head,
-      site,
+      siteConfig,
       page: toPageRenderView(page),
       slots,
     }),
   );
-}
-
-export async function renderPageFile(
-  pagePath: string,
-  siteRoot: string,
-  site: SiteSettings,
-): Promise<string> {
-  const absolute = resolve(siteRoot, pagePath);
-  const url = pathToFileURL(absolute).href;
-  const imported = await import(url);
-  const page = imported.default;
-
-  if (!isPage(page)) {
-    throw new RenderError(
-      `${pagePath} must default-export a page from createPage()`,
-    );
-  }
-
-  return renderPage(page, siteRoot, site);
 }

@@ -4,7 +4,7 @@ import { html, renderAsync } from "@hyperspan/html";
 import { createModule } from "../src/modules.js";
 import { createPage } from "../src/pages.js";
 import { renderPage } from "../src/render-page.js";
-import { createSite } from "../src/site.js";
+import { createSiteConfig } from "../src/site.js";
 import { renderSlotContent } from "../src/slot-handle.js";
 import { createTemplate } from "../src/templates.js";
 
@@ -13,9 +13,9 @@ function sleep(ms: number): Promise<void> {
 }
 
 describe("async module rendering", () => {
-  it("awaits async modules in slot content", async () => {
-    const site = createSite({ name: "Test" });
-    const ctx = { siteRoot: "/tmp", site };
+  it("await async modules in slot content", async () => {
+    const siteConfig = createSiteConfig({ name: "Test" });
+    const ctx = { siteConfig };
 
     const slowModule = createModule({
       name: "slow",
@@ -34,8 +34,8 @@ describe("async module rendering", () => {
   });
 
   it("resolves multiple async modules concurrently", async () => {
-    const site = createSite({ name: "Test" });
-    const ctx = { siteRoot: "/tmp", site };
+    const siteConfig = createSiteConfig({ name: "Test" });
+    const ctx = { siteConfig };
     const order: string[] = [];
 
     const first = createModule({
@@ -72,11 +72,11 @@ describe("async module rendering", () => {
   });
 
   it("renders async modules through the full page pipeline", async () => {
-    const site = createSite({ name: "Test Site" });
+    const siteConfig = createSiteConfig({ name: "Test Site" });
     const template = createTemplate({
-      site,
+      siteConfig,
       slots: [{ name: "content", options: { required: true, primary: true } }],
-      render({ slots }) {
+      render({ slots }: { slots: { content: { render: () => unknown } } }): ReturnType<typeof html> {
         return html`<main>${slots.content.render()}</main>`;
       },
     });
@@ -95,7 +95,7 @@ describe("async module rendering", () => {
       slots: { content: [asyncModule] },
     });
 
-    const htmlOut = await renderPage(page, "/tmp", site);
+    const htmlOut = await renderPage(page, siteConfig);
 
     assert.match(htmlOut, /<main><p>async page content<\/p><\/main>/);
     assert.doesNotMatch(htmlOut, /hs:loading/);

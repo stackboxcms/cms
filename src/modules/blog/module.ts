@@ -1,49 +1,86 @@
-import { createPage } from "../../pages.js";
-import { html } from "@hyperspan/html";
-import { createModule } from "../../modules.js";
-import { discoverPosts } from "./posts.js";
+import type { PageMeta } from "../../pages.js";
+import type { DefaultSlotContent } from "../../slot-content.js";
+import { loadPosts, type BlogOptions, type BlogPost } from "./posts.js";
 
-export default createModule<{
-  contentPath: string;
-  pathPrefix: string;
-  enabled?: boolean;
-}>({
-  name: "blog",
-  render({ contentPath, pathPrefix, enabled = true }, ctx) {
-    if (!enabled) {
-      return html``;
-    }
+export type { BlogPost, BlogOptions } from "./posts.js";
 
-    const posts = discoverPosts({ contentPath, pathPrefix }, ctx!);
+export type BlogPostContent = {
+  path: string;
+  title: string;
+  meta?: PageMeta;
+  content: DefaultSlotContent[];
+};
 
-    if (posts.length === 0) {
-      return html`<p>No blog posts found.</p>`;
-    }
+export type BlogListingContent = {
+  path: string;
+  content: DefaultSlotContent[];
+};
 
-    return html`<h2>From the blog</h2>
-<ul>
-  ${posts.map(
-    (post) => html`<li><a href="${post.path}">${post.title}</a></li>`,
-  )}
-</ul>`;
-  },
-  async resolvePages({ contentPath, pathPrefix, template }, ctx) {
-    const posts = discoverPosts({ contentPath, pathPrefix }, ctx);
+export type Blog = {
+  readonly posts: readonly BlogPostContent[];
+  readonly listings: readonly BlogListingContent[];
+};
 
-    return posts.map((post) =>
-      createPage(template, {
-        path: post.path,
-        title: post.title,
-        meta: post.description ? { description: post.description } : undefined,
-        slots: {
-          content: [
-            `<article data-content-type="article" data-slug="${post.slug}">
+function postToContent(post: BlogPost): BlogPostContent {
+  return {
+    path: post.path,
+    title: post.title,
+    meta: post.description ? { description: post.description } : undefined,
+    content: [
+      `<article data-content-type="article" data-slug="${post.slug}">
   <h1>${post.title}</h1>
   ${post.bodyHtml}
 </article>`,
-          ],
-        },
-      }),
-    );
-  },
-});
+    ],
+  };
+}
+
+function listingPath(pathPrefix: string, page: number): string {
+  return page === 1 ? pathPrefix : `${pathPrefix}/page/${page}`;
+}
+
+function buildPostListHtml(posts: BlogPost[]): string {
+  return `<ul>${posts
+    .map((post) => `<li><a href="${post.path}">${post.title}</a></li>`)
+    .join("")}</ul>`;
+}
+
+function buildListingPages(
+  posts: BlogPost[],
+  pathPrefix: string,
+  postsPerPage?: number,
+): BlogListingContent[] {
+  if (posts.length === 0) {
+    return [
+      {
+        path: pathPrefix,
+        content: ["<p>No blog posts found.</p>"],
+      },
+    ];
+  }
+
+  const perPage =
+    postsPerPage && postsPerPage > 0 ? postsPerPage : posts.length;
+  const pages: BlogListingContent[] = [];
+
+  for (let i = 0; i < posts.length; i += perPage) {
+    const chunk = posts.slice(i, i + perPage);
+    const page = i / perPage + 1;
+    pages.push({
+      path: listingPath(pathPrefix, page),
+      content: [buildPostListHtml(chunk)],
+    });
+  }
+
+  return pages;
+}
+
+export function createBlog(options: BlogOptions): Blog {
+  const loaded = loadPosts(options);
+  const pathPrefix = options.pathPrefix.replace(/\/+$/, "") || "/";
+
+  return {
+    posts: loaded.map(postToContent),
+    listings: buildListingPages(loaded, pathPrefix, options.postsPerPage),
+  };
+}

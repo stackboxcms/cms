@@ -1,6 +1,6 @@
 import { render, type HSHtml } from "@hyperspan/html";
 import type { z } from "zod";
-import { isSite, type SiteSettings } from "./site.js";
+import { isSiteConfig, type SiteConfig } from "./site.js";
 import type { PageRenderView } from "./pages.js";
 import {
   buildStubSlots,
@@ -29,7 +29,7 @@ export type TemplateRenderContext<
   S extends readonly SlotDefinition[] = readonly SlotDefinition[],
 > = {
   head?: HSHtml;
-  site: SiteSettings;
+  siteConfig: SiteConfig;
   page: PageRenderView;
   slots: TemplateSlotsFrom<S>;
 };
@@ -37,7 +37,7 @@ export type TemplateRenderContext<
 /** Widened render signature stored on descriptors at runtime. */
 export type TemplateRenderFn = (ctx: {
   head?: HSHtml;
-  site: SiteSettings;
+  siteConfig: SiteConfig;
   page: PageRenderView;
   slots: Record<string, import("./slot-handle.js").Slot>;
 }) => HSHtml;
@@ -48,7 +48,7 @@ export type TemplateDescriptor<
   Definitions extends readonly SlotDefinition[] = readonly SlotDefinition[],
 > = {
   readonly __kind: "template";
-  site: SiteSettings;
+  siteConfig: SiteConfig;
   formatPageTitle: (title: string) => string;
   render: TemplateRenderFn;
   slots: Record<Slots, SlotMeta>;
@@ -70,7 +70,7 @@ export function isTemplate(value: unknown): value is TemplateDescriptor {
     typeof value === "object" &&
     value !== null &&
     (value as TemplateDescriptor).__kind === "template" &&
-    isSite((value as TemplateDescriptor).site) &&
+    isSiteConfig((value as TemplateDescriptor).siteConfig) &&
     typeof (value as TemplateDescriptor).formatPageTitle === "function" &&
     typeof (value as TemplateDescriptor).render === "function" &&
     typeof (value as TemplateDescriptor).slots === "object" &&
@@ -81,9 +81,9 @@ export function isTemplate(value: unknown): value is TemplateDescriptor {
 
 function defaultFormatPageTitle(
   pageTitle: string,
-  site: SiteSettings,
+  siteConfig: SiteConfig,
 ): string {
-  const suffix = site.config.titleSuffix;
+  const suffix = siteConfig.config.titleSuffix;
   return typeof suffix === "string" ? pageTitle + suffix : pageTitle;
 }
 
@@ -165,9 +165,9 @@ const stubPage: PageRenderView = {
 
 export function createTemplate<const S extends readonly SlotDefinition[]>(
   def: {
-    site: SiteSettings;
+    siteConfig: SiteConfig;
     slots: S;
-    title?: (pageTitle: string, site: SiteSettings) => string;
+    title?: (pageTitle: string, siteConfig: SiteConfig) => string;
     render: (ctx: TemplateRenderContext<S>) => HSHtml;
   },
 ): TemplateDescriptor<
@@ -175,22 +175,23 @@ export function createTemplate<const S extends readonly SlotDefinition[]>(
   RequiredSlotNamesFrom<S>,
   S
 > {
-  if (!isSite(def.site)) {
+  if (!isSiteConfig(def.siteConfig)) {
     throw new TemplateBuildError(
-      "createTemplate({ site }): site must be created with createSite()",
+      "createTemplate({ siteConfig }): siteConfig must be from createSiteConfig()",
     );
   }
 
   const formatPageTitle = def.title
-    ? (pageTitle: string) => def.title!(pageTitle, def.site)
-    : (pageTitle: string) => defaultFormatPageTitle(pageTitle, def.site);
+    ? (pageTitle: string) => def.title!(pageTitle, def.siteConfig)
+    : (pageTitle: string) =>
+        defaultFormatPageTitle(pageTitle, def.siteConfig);
 
   const entries = validateSlotDefinitions(def.slots);
   const stubSlots = buildStubSlots(def.slots);
 
   const validationHtml = render(
     def.render({
-      site: def.site,
+      siteConfig: def.siteConfig,
       page: stubPage,
       slots: stubSlots,
     }),
@@ -217,7 +218,7 @@ export function createTemplate<const S extends readonly SlotDefinition[]>(
 
   return {
     __kind: "template" as const,
-    site: def.site,
+    siteConfig: def.siteConfig,
     formatPageTitle,
     render: def.render as TemplateRenderFn,
     slots,
