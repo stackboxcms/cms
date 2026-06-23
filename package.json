@@ -1,0 +1,47 @@
+{
+  "name": "@stackbox/cms",
+  "version": "0.0.1",
+  "description": "Stackbox CMS engine",
+  "type": "module",
+  "license": "MIT",
+  "exports": {
+    ".": {
+      "types": "./dist/index.d.ts",
+      "import": "./dist/index.js"
+    },
+    "./modules/blog": {
+      "types": "./dist/modules/blog/module.d.ts",
+      "import": "./dist/modules/blog/module.js"
+    },
+    "./modules/heading": {
+      "types": "./dist/modules/heading/module.d.ts",
+      "import": "./dist/modules/heading/module.js"
+    }
+  },
+  "bin": {
+    "stackbox-cms": "./bin/stackbox-cms.js"
+  },
+  "files": [
+    "dist",
+    "bin"
+  ],
+  "scripts": {
+    "build": "tsc -p tsconfig.json",
+    "test": "npm run build && node --import tsx --test test/async-render.test.ts",
+    "typecheck": "tsc --noEmit -p tsconfig.json",
+    "prepublishOnly": "npm run build"
+  },
+  "dependencies": {
+    "@hyperspan/html": "^1.0.3",
+    "marked": "^15.0.12",
+    "tsx": "^4.19.4",
+    "zod": "^4.4.3"
+  },
+  "devDependencies": {
+    "@types/node": "^22.15.21",
+    "typescript": "^5.8.3"
+  },
+  "engines": {
+    "node": ">=20"
+  }
+}
