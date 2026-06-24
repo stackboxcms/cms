@@ -60,8 +60,7 @@ export default createSiteConfig({
 `templates/site-template.ts`:
 
 ```ts
-import { html } from "@hyperspan/html";
-import { createTemplate } from "@stackbox/cms";
+import { createTemplate, html } from "@stackbox/cms";
 import siteConfig from "../site.config";
 
 export const siteTemplate = createTemplate({

@@ -4,6 +4,9 @@
   "description": "Stackbox CMS engine",
   "type": "module",
   "license": "BSD-3-Clause",
+  "publishConfig": {
+    "access": "public"
+  },
   "homepage": "https://github.com/stackboxcms/cms",
   "repository": {
     "type": "git",

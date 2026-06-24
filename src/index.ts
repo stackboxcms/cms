@@ -1,3 +1,4 @@
+export { html } from "@hyperspan/html";
 export {
   createModule,
   isModule,
