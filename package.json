@@ -1,6 +1,6 @@
 {
   "name": "@stackbox/cms",
-  "version": "0.0.1",
+  "version": "0.0.2",
   "description": "Stackbox CMS engine",
   "type": "module",
   "license": "BSD-3-Clause",
