@@ -1,6 +1,6 @@
 {
   "name": "@stackbox/cms",
-  "version": "0.0.4",
+  "version": "0.0.5",
   "description": "Stackbox CMS engine",
   "type": "module",
   "license": "BSD-3-Clause",
@@ -12,6 +12,11 @@
     "type": "git",
     "url": "git+https://github.com/stackboxcms/cms.git"
   },
+  "files": [
+    "dist",
+    "AGENTS.md",
+    "src/plugins"
+  ],
   "exports": {
     ".": {
       "types": "./dist/index.d.ts",
@@ -34,7 +39,7 @@
     "build": "tsc -p tsconfig.json && node scripts/copy-plugin-assets.mjs",
     "test": "npm run build && node --import tsx --test test/*.test.ts",
     "typecheck": "tsc --noEmit -p tsconfig.json",
-    "prepublishOnly": "npm run build"
+    "prepack": "npm run build"
   },
   "dependencies": {
     "@hyperspan/html": "^1.0.3",
