@@ -4,7 +4,7 @@ import { join } from "node:path";
 import { mkdtempSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { describe, it } from "node:test";
-import { createBlog } from "../src/modules/blog/module.js";
+import { createBlog } from "../src/plugins/blog/index.js";
 
 function makeBlogDir(posts: Record<string, string>): string {
   const root = mkdtempSync(join(tmpdir(), "stackbox-blog-"));

@@ -1,6 +1,7 @@
 import type { SitePage } from "./pages.js";
 import { isPage } from "./pages.js";
 import { renderPage } from "./render-page.js";
+import { servePluginAsset } from "./link.js";
 import { normalizePathname } from "./routing.js";
 import { createContext } from "./stackbox/context.js";
 
@@ -124,6 +125,12 @@ export function createSite<T extends Record<string, unknown>>(
       }
 
       const pathname = normalizePathname(ctx.req.url.pathname);
+
+      const pluginAsset = servePluginAsset(pathname, method);
+      if (pluginAsset) {
+        return pluginAsset;
+      }
+
       const page = pageMap.get(pathname);
 
       if (!page) {

@@ -1,22 +1,22 @@
 import type { z } from "zod";
 import { z as zod } from "zod";
-import { isModule, type Module } from "./modules.js";
+import { isBlock, type Block } from "./blocks.js";
 import type { SlotDefinition, SlotNamesFrom } from "./templates.js";
 
-export type DefaultSlotContent = Module | string;
+export type DefaultSlotContent = Block | string;
 
-/** Accepts any module or HTML string (default slot content). */
+/** Accepts any block or HTML string (default slot content). */
 export const anySlotContentSchema: z.ZodType<DefaultSlotContent> = zod.union([
   zod.string(),
-  zod.custom<Module>((value) => isModule(value)),
+  zod.custom<Block>((value) => isBlock(value)),
 ]);
 
 /** Accepts only HTML strings. */
 export const stringSlotContentSchema = zod.string();
 
-/** Accepts only CMS modules. */
-export const moduleSlotContentSchema: z.ZodType<Module> = zod.custom<Module>(
-  (value) => isModule(value),
+/** Accepts only CMS blocks. */
+export const blockSlotContentSchema: z.ZodType<Block> = zod.custom<Block>(
+  (value) => isBlock(value),
 );
 
 export type SlotContentFromDefinition<D extends SlotDefinition> =
@@ -53,10 +53,10 @@ export function validateSlotContentItem(
     return;
   }
 
-  if (typeof item !== "string" && !isModule(item)) {
+  if (typeof item !== "string" && !isBlock(item)) {
     throw new SlotContentValidationError(
       slotName,
-      "expected module or HTML string",
+      "expected block or HTML string",
     );
   }
 }
@@ -71,7 +71,7 @@ export class SlotContentValidationError extends Error {
 export function slotHasContent(items: unknown[]): boolean {
   return items.some(
     (item) =>
-      isModule(item) ||
+      isBlock(item) ||
       (typeof item === "string" && item.trim().length > 0),
   );
 }

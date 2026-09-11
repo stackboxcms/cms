@@ -18,7 +18,7 @@ function validateRequiredSlots(page: SitePage): void {
     const items = page.slots[required as keyof typeof page.slots];
     if (!items || items.length === 0 || !slotHasContent(items)) {
       throw new PageValidationError(
-        `required slot "${required}" must have at least one module or non-empty HTML string`,
+        `required slot "${required}" must have at least one block or non-empty HTML string`,
       );
     }
   }

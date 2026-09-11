@@ -1,6 +1,6 @@
 {
   "name": "@stackbox/cms",
-  "version": "0.0.3",
+  "version": "0.0.4",
   "description": "Stackbox CMS engine",
   "type": "module",
   "license": "BSD-3-Clause",
@@ -17,13 +17,21 @@
       "types": "./dist/index.d.ts",
       "import": "./dist/index.js"
     },
-    "./modules/blog": {
-      "types": "./dist/modules/blog/module.d.ts",
-      "import": "./dist/modules/blog/module.js"
+    "./plugins/blog": {
+      "types": "./dist/plugins/blog/index.d.ts",
+      "import": "./dist/plugins/blog/index.js"
+    },
+    "./plugins/random-quote": {
+      "types": "./dist/plugins/random-quote/index.d.ts",
+      "import": "./dist/plugins/random-quote/index.js"
+    },
+    "./link": {
+      "types": "./dist/link.d.ts",
+      "import": "./dist/link.js"
     }
   },
   "scripts": {
-    "build": "tsc -p tsconfig.json",
+    "build": "tsc -p tsconfig.json && node scripts/copy-plugin-assets.mjs",
     "test": "npm run build && node --import tsx --test test/*.test.ts",
     "typecheck": "tsc --noEmit -p tsconfig.json",
     "prepublishOnly": "npm run build"

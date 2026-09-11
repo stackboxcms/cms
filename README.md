@@ -1,12 +1,22 @@
 # @stackbox/cms
 
-A small, code-first CMS engine for building dynamic [Cloudflare Worker](https://developers.cloudflare.com/workers/) sites. Stackbox is designed to be driven by AI: pages, templates, and content modules are plain TypeScript files with typed, composable APIs, so an agent can author and assemble a site without a database, admin UI, or hand-written backend.
+A small, code-first CMS engine for building dynamic sites behind a standard **fetch handler**. Stackbox is designed to be driven by AI: pages, templates, blocks, and plugins are plain TypeScript files with typed, composable APIs, so an agent can author and assemble a site without a database, admin UI, or hand-written backend.
 
-Pages are rendered on each request inside a Cloudflare Worker, so content, templates, and modules can be fully dynamic — driven by request data, bindings (KV, D1, R2), and async data fetching.
+`createSite()` returns an object with a `fetch(request, env)` method — the same shape used by Cloudflare Workers, Bun, Deno, and other runtimes that serve HTTP via the Fetch API:
+
+```ts
+export default {
+  fetch(req: Request): Response | Promise<Response> {
+    return new Response(...);
+  },
+};
+```
+
+Pages are rendered on each request, so content, templates, blocks, and plugins can be fully dynamic — driven by request data, environment bindings, and async data fetching.
 
 ## Why this exists
 
-Traditional CMSes assume a human clicking around an admin panel. Stackbox inverts that: a site is TypeScript modules assembled into a Worker. Every primitive (`createSiteConfig`, `createSite`, `createTemplate`, `createPage`, `createModule`) is a typed factory suited for AI to generate, edit, and validate site content as code — and the same files render dynamically on Cloudflare Workers at request time.
+Traditional CMSes assume a human clicking around an admin panel. Stackbox inverts that: a site is TypeScript assembled into a fetch handler. Every primitive (`createSiteConfig`, `createSite`, `createTemplate`, `createPage`, `createBlock`) is a typed factory suited for AI to generate, edit, and validate site content as code — and the same files render dynamically at request time.
 
 ## Requirements
 
@@ -23,19 +33,21 @@ npm install @stackbox/cms
 | Primitive | Factory | Purpose |
 | --- | --- | --- |
 | **Site config** | `createSiteConfig(config)` | Definition-time settings shared by templates and pages. |
-| **Site** | `createSite(siteConfig, { pages }` | Runtime router with `fetch(request, env)` for Cloudflare Workers. |
-| **Template** | `createTemplate({ siteConfig, slots, render }` | A reusable page layout that declares named **slots**. |
-| **Page** | `createPage(template, { path, title, slots }` | A single URL, built by filling a template's slots with content. |
-| **Module** | `createModule({ name, render }` | A self-contained content block placed into a slot. |
+| **Site** | `createSite(siteConfig, { pages })` | Runtime router with `fetch(request, env)` — a fetch-handler-compatible server. |
+| **Template** | `createTemplate({ siteConfig, slots, render })` | A reusable page layout that declares named **slots**. |
+| **Page** | `createPage(template, { path, title, slots })` | A single URL, built by filling a template's slots with content. |
+| **Block** | `createBlock({ name, render })` | A self-contained content block placed into a slot at request time. |
 
-**Slots** are named regions in a template. Page content — strings, HTML, or modules — is dropped into slots, and the engine resolves and renders everything (including `async` modules, concurrently) to a single HTML string.
+**Plugins vs blocks:** **Plugins** package whole features (blog, newsletter) under `@stackbox/cms/plugins/<name>` — they may export factories, content objects, blocks, types, and helpers. **Blocks** are the core slot primitive via `createBlock()`; plugins can ship blocks alongside other exports.
+
+**Slots** are named regions in a template. Page content — strings, HTML, or blocks — is dropped into slots, and the engine resolves and renders everything (including async blocks, concurrently) to a single HTML string.
 
 ## Project layout
 
 ```
-my-worker/
+my-site/
   site.config.ts      # createSiteConfig({ name, url, ... })
-  worker.ts           # createSite(siteConfig, { pages }) — default export for Cloudflare
+  server.ts           # createSite(...) — default export is your fetch handler
   templates/
     site-template.ts  # shared createTemplate() layouts
   pages/
@@ -87,7 +99,7 @@ const homePage = createPage(siteTemplate, {
 export default homePage;
 ```
 
-`worker.ts`:
+`server.ts`:
 
 ```ts
 import { createSite } from "@stackbox/cms";
@@ -100,9 +112,13 @@ export default createSite(siteConfig, {
 });
 ```
 
-Deploy with [`wrangler`](https://developers.cloudflare.com/workers/wrangler/). The default export's `fetch(request, env)` handles each request.
+The default export implements `fetch(request, env)` and returns a `Response` — drop it into any runtime that speaks the fetch-handler pattern. For example:
 
-## Blog module
+- **[Cloudflare Workers](https://developers.cloudflare.com/workers/)** — deploy with [`wrangler`](https://developers.cloudflare.com/workers/wrangler/) (often as `worker.ts`)
+- **[Bun](https://bun.sh/docs/api/http#fetch-handler)** — `Bun.serve({ fetch: site.fetch })`
+- **[Deno](https://docs.deno.com/runtime/fundamentals/http_server/)** — `Deno.serve(site.fetch)`
+
+## Blog plugin
 
 `createBlog()` loads markdown at bundle time and returns **content objects** you wire into your own pages with `createPage()` — so you control templates, slots, and any extra content alongside blog output.
 
@@ -110,7 +126,7 @@ Deploy with [`wrangler`](https://developers.cloudflare.com/workers/wrangler/). T
 // pages/blog.ts
 import { join } from "node:path";
 import { createPage } from "@stackbox/cms";
-import { createBlog } from "@stackbox/cms/modules/blog";
+import { createBlog } from "@stackbox/cms/plugins/blog";
 import { siteTemplate } from "../templates/site-template";
 
 const blog = createBlog({
@@ -140,7 +156,7 @@ export const blogPostPages = blog.posts.map((post) =>
 ```
 
 ```ts
-// worker.ts
+// server.ts
 import { blogListingPages, blogPostPages } from "./pages/blog";
 
 export default createSite(siteConfig, {
@@ -148,10 +164,34 @@ export default createSite(siteConfig, {
 });
 ```
 
-## Bundled modules
+## Bundled plugins
+
+**Blog** — content objects wired into pages:
 
 ```ts
-import { createBlog } from "@stackbox/cms/modules/blog";
+import { createBlog } from "@stackbox/cms/plugins/blog";
+```
+
+**Random quote** — block-only plugin (drop into any slot):
+
+```ts
+import { randomQuoteBlock } from "@stackbox/cms/plugins/random-quote";
+import myQuotes from "../content/quotes.json" with { type: "json" };
+
+slots: { sidebar: [randomQuoteBlock()] } // bundled quotes
+slots: { sidebar: [randomQuoteBlock({ quotes: myQuotes })] } // your own
+```
+
+## AI agents
+
+Bundled plugins include agent playbooks. See [`AGENTS.md`](AGENTS.md) for site conventions and a plugin catalog. When a user asks for a feature (e.g. "add a blog"), read **only** the matching plugin's `AGENTS.md` — do not load every plugin file.
+
+If you are building a site that uses this package, add this to your project's `AGENTS.md`:
+
+```md
+This site uses @stackbox/cms. Before adding features, read
+`node_modules/@stackbox/cms/AGENTS.md` and follow its plugin catalog.
+Do not reimplement bundled plugins.
 ```
 
 ## Development

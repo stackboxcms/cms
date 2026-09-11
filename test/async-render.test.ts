@@ -1,7 +1,7 @@
 import assert from "node:assert/strict";
 import { describe, it } from "node:test";
 import { html, renderAsync } from "@hyperspan/html";
-import { createModule } from "../src/modules.js";
+import { createBlock } from "../src/blocks.js";
 import { createPage } from "../src/pages.js";
 import { renderPage } from "../src/render-page.js";
 import { createSiteConfig } from "../src/site.js";
@@ -12,33 +12,33 @@ function sleep(ms: number): Promise<void> {
   return new Promise((resolve) => setTimeout(resolve, ms));
 }
 
-describe("async module rendering", () => {
-  it("await async modules in slot content", async () => {
+describe("async block rendering", () => {
+  it("await async blocks in slot content", async () => {
     const siteConfig = createSiteConfig({ name: "Test" });
     const ctx = { siteConfig };
 
-    const slowModule = createModule({
+    const slowBlock = createBlock({
       name: "slow",
       async render() {
         await sleep(25);
-        return html`<p>slow module</p>`;
+        return html`<p>slow block</p>`;
       },
     })();
 
     const htmlOut = await renderAsync(
-      await renderSlotContent("content", [slowModule], ctx, undefined),
+      await renderSlotContent("content", [slowBlock], ctx, undefined),
     );
 
-    assert.match(htmlOut, /<p>slow module<\/p>/);
+    assert.match(htmlOut, /<p>slow block<\/p>/);
     assert.doesNotMatch(htmlOut, /hs:loading/);
   });
 
-  it("resolves multiple async modules concurrently", async () => {
+  it("resolves multiple async blocks concurrently", async () => {
     const siteConfig = createSiteConfig({ name: "Test" });
     const ctx = { siteConfig };
     const order: string[] = [];
 
-    const first = createModule({
+    const first = createBlock({
       name: "first",
       async render() {
         await sleep(30);
@@ -47,7 +47,7 @@ describe("async module rendering", () => {
       },
     })();
 
-    const second = createModule({
+    const second = createBlock({
       name: "second",
       async render() {
         await sleep(10);
@@ -71,7 +71,7 @@ describe("async module rendering", () => {
     assert.deepEqual(order, ["second", "first"]);
   });
 
-  it("renders async modules through the full page pipeline", async () => {
+  it("renders async blocks through the full page pipeline", async () => {
     const siteConfig = createSiteConfig({ name: "Test Site" });
     const template = createTemplate({
       siteConfig,
@@ -81,7 +81,7 @@ describe("async module rendering", () => {
       },
     });
 
-    const asyncModule = createModule({
+    const asyncBlock = createBlock({
       name: "page-async",
       async render() {
         await sleep(15);
@@ -92,7 +92,7 @@ describe("async module rendering", () => {
     const page = createPage(template, {
       path: "/async-test",
       title: "Async test",
-      slots: { content: [asyncModule] },
+      slots: { content: [asyncBlock] },
     });
 
     const htmlOut = await renderPage(page, siteConfig);

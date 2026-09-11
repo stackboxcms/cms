@@ -1,12 +1,12 @@
 export { html } from "@hyperspan/html";
 export {
-  createModule,
-  isModule,
-  type Module,
-  type ModuleFactory,
-  type ModuleOptionsOf,
-  type ModuleRenderResult,
-} from "./modules.js";
+  createBlock,
+  isBlock,
+  type Block,
+  type BlockFactory,
+  type BlockOptionsOf,
+  type BlockRenderResult,
+} from "./blocks.js";
 export {
   createPage,
   isPage,
@@ -34,7 +34,7 @@ export {
 export { createContext, Stackbox } from "./stackbox/context.js";
 export {
   anySlotContentSchema,
-  moduleSlotContentSchema,
+  blockSlotContentSchema,
   slotHasContent,
   SlotContentValidationError,
   stringSlotContentSchema,

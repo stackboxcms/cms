@@ -1,6 +1,6 @@
 import { html, type HSHtml } from "@hyperspan/html";
 import type { z } from "zod";
-import { isModule } from "./modules.js";
+import { isBlock } from "./blocks.js";
 import type { SitePage, RenderContext } from "./pages.js";
 import {
   type DefaultSlotContent,
@@ -62,11 +62,11 @@ export function renderSlotContent(
       if (typeof item === "string") {
         return html.raw(item);
       }
-      if (isModule(item)) {
+      if (isBlock(item)) {
         return item.render(ctx);
       }
       throw new RenderError(
-        "invalid slot content; expected module or HTML string",
+        "invalid slot content; expected block or HTML string",
       );
     }),
   ).then((chunks) => html`${chunks}`);
