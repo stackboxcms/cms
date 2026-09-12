@@ -26,6 +26,45 @@ package.json         # "build": "stackbox-cms build"
 
 The default export from `server.ts` implements `fetch(request, env)` and returns a `Response`. It works on Cloudflare Workers, Bun, Deno, and any runtime that speaks the fetch-handler pattern.
 
+## Page request cache
+
+GET/HEAD page renders are cached in memory by default. Keys are pathname + query string (`/about?preview=1` is separate from `/about`). Plugin routes and `/_sb/plugins/` assets are never cached.
+
+Optional `cache` on site config, pages, and blocks — same shape everywhere:
+
+```ts
+export type CacheConfig = { min?: number; max?: number } | false;
+```
+
+Milliseconds. Omit = no opinion. `cache: false` = fully dynamic (do not cache that request).
+
+```ts
+createSiteConfig({
+  name: "My Site",
+  url: "https://example.com",
+  cache: { min: 60_000, max: 7 * 24 * 60 * 60 * 1000 },
+})
+
+createPage(template, {
+  path: "/live",
+  title: "Live",
+  cache: false,
+  slots: { content: [...] },
+})
+
+createBlock({
+  name: "random-quote",
+  cache: { max: 5 * 60 * 1000 },
+  render() { ... },
+})
+```
+
+TTL is derived from the site config, the page, and every block on that page. If **any** of those is `false`, the request is not cached. Otherwise merge `{ min, max }` (unset fields ignored): highest `min` floors the result, lowest `max` caps it (default TTL 1 day, hard cap 30 days). Registering a plugin does not change cache times — only blocks (or pages) with `cache` on that page count.
+
+Stale entries are served immediately (stale-while-revalidate); one background refresh runs per key. Concurrent misses share a single render (single-flight). Failed refreshes keep the last good HTML.
+
+Disable caching for a whole site with `createSiteConfig({ cache: false })`. `createSite` accepts an optional `cacheAdapter` for tests or custom stores — do not overload `cache` on `createSite`.
+
 ## Plugins vs blocks
 
 - **Plugin** — a packaged use-case (bundled under `@stackbox/cms/plugins/<name>`, or a third-party package with the same shape). **Default-exports** a `createPlugin()` registration object, plus named factories, content objects, blocks, types, and helpers.

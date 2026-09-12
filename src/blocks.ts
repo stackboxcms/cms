@@ -1,4 +1,5 @@
 import type { RenderContext } from "./pages.js";
+import type { CacheConfig } from "./cache.js";
 import type { HSHtml } from "@hyperspan/html";
 
 export type BlockRenderResult = HSHtml | Promise<HSHtml>;
@@ -6,11 +7,13 @@ export type BlockRenderResult = HSHtml | Promise<HSHtml>;
 export type Block = {
   readonly __kind: "block";
   readonly name: string;
+  readonly cache?: CacheConfig;
   render(ctx: RenderContext): BlockRenderResult;
 };
 
 type BlockDef<TOptions = undefined> = {
   name: string;
+  cache?: CacheConfig;
   render(options: TOptions, ctx?: RenderContext): BlockRenderResult;
 };
 
@@ -42,6 +45,7 @@ export function createBlock<TOptions = undefined>(
   return ((options?: TOptions) => ({
     __kind: "block" as const,
     name: def.name,
+    ...(def.cache !== undefined ? { cache: def.cache } : {}),
     render: (ctx: RenderContext) => def.render(options as TOptions, ctx),
   })) as BlockFactory<TOptions>;
 }

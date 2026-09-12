@@ -12,7 +12,7 @@ export default {
 };
 ```
 
-Pages are rendered on each request, so content, templates, blocks, and plugins can be fully dynamic — driven by request data, environment bindings, and async data fetching.
+GET/HEAD page renders are cached in memory by default (stale-while-revalidate, single-flight refresh). Set `cache: false` on the site config, a page, or any block on that page to render every request. Plugin routes and plugin assets are always uncached.
 
 ## Why this exists
 
@@ -44,6 +44,33 @@ npm install @stackbox/cms
 Importing a plugin does not enable it. Pass `plugin` into `createSite({ plugins })`. Only registered plugins have `public_assets/` served or copied.
 
 **Slots** are named regions in a template. Page content — strings, HTML, or blocks — is dropped into slots, and the engine resolves and renders everything (including async blocks, concurrently) to a single HTML string.
+
+## Page cache
+
+Optional `cache: { min?: number; max?: number } | false` on site config, pages, and blocks (milliseconds). Omit = no opinion; `false` = never cache that request.
+
+```ts
+createSiteConfig({
+  name: "My Site",
+  url: "https://example.com",
+  cache: { min: 60_000, max: 7 * 24 * 60 * 60 * 1000 },
+});
+
+createPage(template, {
+  path: "/live",
+  title: "Live",
+  cache: false,
+  slots: { content: [...] },
+});
+
+createBlock({
+  name: "ticker",
+  cache: { max: 5 * 60 * 1000 },
+  render() { ... },
+});
+```
+
+TTL merges settings from the site config, the page, and on-page blocks: highest `min` floors the result, lowest `max` caps it (default 1 day, hard cap 30 days). Responses include `Cache-Control`. Expired entries are served immediately while one background refresh runs per key.
 
 ## Project layout
 

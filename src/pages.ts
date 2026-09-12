@@ -1,3 +1,4 @@
+import type { CacheConfig } from "./cache.js";
 import type { SiteConfig } from "./site.js";
 import type { Stackbox } from "./stackbox/context.js";
 import {
@@ -40,6 +41,7 @@ export type Page<
   template: TemplateDescriptor<Slots, RequiredSlots, Definitions>;
   title: string;
   meta?: PageMeta;
+  cache?: CacheConfig;
   slots: PageSlotsInput<Definitions, RequiredSlots>;
 };
 
@@ -50,6 +52,7 @@ export type SitePage = {
   template: TemplateDescriptor<string, string>;
   title: string;
   meta?: PageMeta;
+  cache?: CacheConfig;
   slots: Partial<Record<string, DefaultSlotContent[]>>;
 };
 
@@ -137,6 +140,7 @@ export function createPage(
     path: string;
     title: string;
     meta?: PageMeta;
+    cache?: CacheConfig;
     slots: Partial<Record<string, DefaultSlotContent[]>>;
   },
 ): SitePage;
@@ -150,6 +154,7 @@ export function createPage<const S extends readonly SlotDefinition[]>(
     path: string;
     title: string;
     meta?: PageMeta;
+    cache?: CacheConfig;
     slots: PageSlotsInput<S, RequiredSlotNamesFrom<S>>;
   },
 ): Page<SlotNamesFrom<S>, RequiredSlotNamesFrom<S>, S>;
@@ -159,6 +164,7 @@ export function createPage(
     path: string;
     title: string;
     meta?: PageMeta;
+    cache?: CacheConfig;
     slots: Partial<Record<string, DefaultSlotContent[]>>;
   },
 ): SitePage {
@@ -191,6 +197,7 @@ export function createPage(
     template,
     title: def.title,
     meta: def.meta,
+    cache: def.cache,
     slots: def.slots,
   };
 }

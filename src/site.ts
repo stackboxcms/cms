@@ -1,3 +1,15 @@
+import {
+  buildPageCacheKey,
+  cacheControlFresh,
+  cacheControlStale,
+  collectPageCacheConfigs,
+  createMemoryCache,
+  isCacheEntryFresh,
+  isPageCacheDisabled,
+  isSuccessfulRender,
+  resolvePageCacheTtlMs,
+  type CacheAdapter,
+} from "./cache.js";
 import type { SitePage } from "./pages.js";
 import { isPage } from "./pages.js";
 import { renderPage } from "./render-page.js";
@@ -141,7 +153,11 @@ function collectPluginRoutes(
 
 export function createSite<T extends Record<string, unknown>>(
   siteConfig: SiteConfig<T>,
-  options: { pages: [SitePage, ...SitePage[]]; plugins?: readonly Plugin[] },
+  options: {
+    pages: [SitePage, ...SitePage[]];
+    plugins?: readonly Plugin[];
+    cacheAdapter?: CacheAdapter;
+  },
 ): Site<T> {
   if (!isSiteConfig(siteConfig)) {
     throw new SiteError(
@@ -197,6 +213,69 @@ export function createSite<T extends Record<string, unknown>>(
   };
 
   const pluginRoutes = collectPluginRoutes(plugins, siteShell, pagePaths);
+  const cacheAdapter = options.cacheAdapter ?? createMemoryCache();
+  const inFlightRenders = new Map<string, Promise<string>>();
+
+  async function renderAndStore(
+    key: string,
+    page: SitePage,
+    ctx: ReturnType<typeof createContext>,
+    ttlMs: number,
+  ): Promise<string> {
+    const existing = inFlightRenders.get(key);
+    if (existing) {
+      return existing;
+    }
+
+    const promise = (async () => {
+      const html = await renderPage(page, siteConfig, ctx);
+      if (isSuccessfulRender(html)) {
+        await cacheAdapter.set(key, {
+          html,
+          expiresAt: Date.now() + ttlMs,
+        });
+      }
+      return html;
+    })();
+
+    inFlightRenders.set(key, promise);
+
+    try {
+      return await promise;
+    } finally {
+      if (inFlightRenders.get(key) === promise) {
+        inFlightRenders.delete(key);
+      }
+    }
+  }
+
+  function startBackgroundRefresh(
+    key: string,
+    page: SitePage,
+    ctx: ReturnType<typeof createContext>,
+    ttlMs: number,
+  ): void {
+    if (inFlightRenders.has(key)) {
+      return;
+    }
+
+    void renderAndStore(key, page, ctx, ttlMs).catch(() => {
+      // Keep serving the last good HTML on refresh failure.
+    });
+  }
+
+  async function respondWithHtml(
+    html: string,
+    method: string,
+    cacheControl: string,
+    ctx: ReturnType<typeof createContext>,
+  ): Promise<globalThis.Response> {
+    const headers = { "Cache-Control": cacheControl };
+    if (method === "HEAD") {
+      return ctx.res.html("", { status: 200, headers });
+    }
+    return ctx.res.html(html, { status: 200, headers });
+  }
 
   return {
     __kind: "site" as const,
@@ -228,13 +307,33 @@ export function createSite<T extends Record<string, unknown>>(
         return ctx.res.notFound();
       }
 
-      const html = await renderPage(page, siteConfig, ctx);
+      const cacheKey = buildPageCacheKey(pathname, ctx.req.url.search);
+      const cacheConfigs = collectPageCacheConfigs(page, siteConfig);
 
-      if (method === "HEAD") {
-        return ctx.res.html("", { status: 200 });
+      if (isPageCacheDisabled(cacheConfigs)) {
+        const html = await renderPage(page, siteConfig, ctx);
+        return respondWithHtml(html, method, "no-store", ctx);
       }
 
-      return ctx.res.html(html);
+      const ttlMs = resolvePageCacheTtlMs(cacheConfigs);
+      const cached = await cacheAdapter.get(cacheKey);
+
+      if (cached && isCacheEntryFresh(cached)) {
+        return respondWithHtml(cached.html, method, cacheControlFresh(ttlMs), ctx);
+      }
+
+      if (cached) {
+        startBackgroundRefresh(cacheKey, page, ctx, ttlMs);
+        return respondWithHtml(
+          cached.html,
+          method,
+          cacheControlStale(ttlMs),
+          ctx,
+        );
+      }
+
+      const html = await renderAndStore(cacheKey, page, ctx, ttlMs);
+      return respondWithHtml(html, method, cacheControlFresh(ttlMs), ctx);
     },
   };
 }

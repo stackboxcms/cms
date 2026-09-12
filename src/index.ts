@@ -1,5 +1,23 @@
 export { html } from "@hyperspan/html";
 export {
+  buildPageCacheKey,
+  cacheControlFresh,
+  cacheControlStale,
+  collectPageCacheConfigs,
+  createMemoryCache,
+  DEFAULT_CACHE_TTL_MS,
+  isCacheConfig,
+  isCacheEntryFresh,
+  isPageCacheDisabled,
+  isSuccessfulRender,
+  MAX_CACHE_TTL_MS,
+  resolvePageCacheTtlMs,
+  type CacheAdapter,
+  type CacheBounds,
+  type CacheConfig,
+  type CacheEntry,
+} from "./cache.js";
+export {
   build,
   BuildError,
   loadSiteFromEntry,
