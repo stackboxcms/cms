@@ -1,5 +1,17 @@
 export { html } from "@hyperspan/html";
 export {
+  build,
+  BuildError,
+  loadSiteFromEntry,
+  parseBuildCliArgs,
+  resolveBuildSettings,
+  runBuildCli,
+  type BuildCliArgs,
+  type BuildOptions,
+  type BuildResult,
+  type BuildSettings,
+} from "./build.js";
+export {
   createBlock,
   isBlock,
   type Block,
@@ -22,6 +34,20 @@ export {
 export { renderStandardHead } from "./render-head.js";
 export { renderPage, RenderError } from "./render-page.js";
 export { matchPagePath, normalizePathname } from "./routing.js";
+export {
+  assertPlugin,
+  copyPluginPrivateAssets,
+  copyRegisteredPluginAssets,
+  createPlugin,
+  isPlugin,
+  PluginError,
+  runRegisteredPluginBuilds,
+  type CreatePluginOptions,
+  type Plugin,
+  type PluginBuildContext,
+  type PluginRoute,
+  type PluginRouteContext,
+} from "./plugin.js";
 export {
   createSite,
   createSiteConfig,

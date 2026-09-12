@@ -1,6 +1,24 @@
+import { createPlugin } from "../../plugin.js";
 import type { PageMeta } from "../../pages.js";
 import type { DefaultSlotContent } from "../../slot-content.js";
 import { loadPosts, type BlogOptions, type BlogPost } from "./posts.js";
+
+export default createPlugin({
+  name: "sb-blog",
+  description:
+    "Load markdown posts at bundle time and return listing and post content objects to wire into createPage().",
+  version: "1.0.0",
+  keywords: [
+    "blog",
+    "posts",
+    "articles",
+    "journal",
+    "markdown posts",
+    "blog listing",
+    "blog page",
+  ],
+  root: import.meta.dirname,
+});
 
 export type { BlogPost, BlogOptions } from "./posts.js";
 

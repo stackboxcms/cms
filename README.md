@@ -33,12 +33,15 @@ npm install @stackbox/cms
 | Primitive | Factory | Purpose |
 | --- | --- | --- |
 | **Site config** | `createSiteConfig(config)` | Definition-time settings shared by templates and pages. |
-| **Site** | `createSite(siteConfig, { pages })` | Runtime router with `fetch(request, env)` — a fetch-handler-compatible server. |
+| **Site** | `createSite(siteConfig, { pages, plugins? })` | Runtime router with `fetch(request, env)` — a fetch-handler-compatible server. |
 | **Template** | `createTemplate({ siteConfig, slots, render })` | A reusable page layout that declares named **slots**. |
 | **Page** | `createPage(template, { path, title, slots })` | A single URL, built by filling a template's slots with content. |
 | **Block** | `createBlock({ name, render })` | A self-contained content block placed into a slot at request time. |
+| **Plugin** | `createPlugin({ name, description, version, keywords, root })` | A packaged feature. Register it on `createSite({ plugins })` when you use it. |
 
-**Plugins vs blocks:** **Plugins** package whole features (blog, newsletter) under `@stackbox/cms/plugins/<name>` — they may export factories, content objects, blocks, types, and helpers. **Blocks** are the core slot primitive via `createBlock()`; plugins can ship blocks alongside other exports.
+**Plugins vs blocks:** **Plugins** package whole features (blog, newsletter) — bundled under `@stackbox/cms/plugins/<name>` or a third-party package with the same shape. Each plugin **must** export a `plugin` object from `createPlugin()` (name, description, version, keywords). **Blocks** are the core slot primitive via `createBlock()`; plugins can ship blocks alongside other exports.
+
+Importing a plugin does not enable it. Pass `plugin` into `createSite({ plugins })`. Only registered plugins have `public_assets/` served or copied.
 
 **Slots** are named regions in a template. Page content — strings, HTML, or blocks — is dropped into slots, and the engine resolves and renders everything (including async blocks, concurrently) to a single HTML string.
 
@@ -109,6 +112,7 @@ import aboutPage from "./pages/about";
 
 export default createSite(siteConfig, {
   pages: [homePage, aboutPage],
+  // plugins: [blogPlugin, randomQuotePlugin], // only plugins this site uses
 });
 ```
 
@@ -157,10 +161,12 @@ export const blogPostPages = blog.posts.map((post) =>
 
 ```ts
 // server.ts
+import blogPlugin from "@stackbox/cms/plugins/blog";
 import { blogListingPages, blogPostPages } from "./pages/blog";
 
 export default createSite(siteConfig, {
   pages: [homePage, ...blogListingPages, ...blogPostPages],
+  plugins: [blogPlugin],
 });
 ```
 
@@ -169,28 +175,65 @@ export default createSite(siteConfig, {
 **Blog** — content objects wired into pages:
 
 ```ts
-import { createBlog } from "@stackbox/cms/plugins/blog";
+import blogPlugin, { createBlog } from "@stackbox/cms/plugins/blog";
 ```
 
 **Random quote** — block-only plugin (drop into any slot):
 
 ```ts
-import { randomQuoteBlock } from "@stackbox/cms/plugins/random-quote";
+import randomQuotePlugin, {
+  randomQuoteBlock,
+} from "@stackbox/cms/plugins/random-quote";
 import myQuotes from "../content/quotes.json" with { type: "json" };
 
 slots: { sidebar: [randomQuoteBlock()] } // bundled quotes
 slots: { sidebar: [randomQuoteBlock({ quotes: myQuotes })] } // your own
 ```
 
+Register every plugin you use:
+
+```ts
+export default createSite(siteConfig, {
+  pages: [homePage, ...blogListingPages, ...blogPostPages],
+  plugins: [blogPlugin, randomQuotePlugin],
+});
+```
+
+Private plugin files live in `assets/` (imported by JS). Files served over HTTP live in `public_assets/` and are copied or served only for registered plugins — including third-party packages that follow the same layout.
+
+Plugins may also register **`routes`** (served by `fetch()`) and **`build`** hooks (run by `stackbox-cms build`). The **sitemap** plugin uses both to serve and write `/sitemap.xml`:
+
+```ts
+import sitemapPlugin from "@stackbox/cms/plugins/sitemap";
+
+export default createSite(siteConfig, {
+  pages: [homePage, aboutPage],
+  plugins: [sitemapPlugin],
+});
+```
+
+Run the package build script so registered plugin `public_assets/` land in the site public directory:
+
+```bash
+npx stackbox-cms build
+# or: npx stackbox-cms build --site server.ts --outDir dist --publicDir dist/public
+```
+
+```json
+"scripts": {
+  "build": "stackbox-cms build"
+}
+```
+
 ## AI agents
 
-Bundled plugins include agent playbooks. See [`AGENTS.md`](AGENTS.md) for site conventions and a plugin catalog. When a user asks for a feature (e.g. "add a blog"), read **only** the matching plugin's `AGENTS.md` — do not load every plugin file.
+Bundled plugins include agent playbooks. See [`dist/AGENTS.md`](dist/AGENTS.md) (generated on `npm run build`) for site conventions and a plugin keyword catalog. When a user asks for a feature (e.g. "add a blog"), read **only** the matching plugin's `AGENTS.md` — do not load every plugin file.
 
 If you are building a site that uses this package, add this to your project's `AGENTS.md`:
 
 ```md
 This site uses @stackbox/cms. Before adding features, read
-`node_modules/@stackbox/cms/AGENTS.md` and follow its plugin catalog.
+`node_modules/@stackbox/cms/dist/AGENTS.md` and follow its plugin catalog.
 Do not reimplement bundled plugins.
 ```
 

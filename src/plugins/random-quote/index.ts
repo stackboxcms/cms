@@ -1,6 +1,22 @@
 import { html } from "@hyperspan/html";
 import { createBlock } from "../../blocks.js";
-import bundledQuotes from "./public_assets/quotes.json" with { type: "json" };
+import { createPlugin } from "../../plugin.js";
+import bundledQuotes from "./assets/quotes.json" with { type: "json" };
+
+export default createPlugin({
+  name: "sb-random-quote",
+  description:
+    "A block that renders a random inspirational quote, using bundled defaults or a site-supplied list.",
+  version: "1.0.0",
+  keywords: [
+    "random quote",
+    "quote of the day",
+    "inspirational quote",
+    "sidebar quote",
+    "quotation",
+  ],
+  root: import.meta.dirname,
+});
 
 export type Quote = {
   text: string;

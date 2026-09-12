@@ -18,6 +18,7 @@ The user asks for any of:
 
 ## Exports
 
+- **default export** — `createPlugin()` registration; pass to `createSite({ plugins })`
 - `createBlog()` — factory; returns `{ posts, listings }`
 - `BlogPostContent`, `BlogListingContent`, `Blog`, `BlogPost`, `BlogOptions` — types
 - `content[]` on post/listing objects accepts **blocks or HTML strings** — optional plugin blocks can be added later (e.g. share buttons)
@@ -60,7 +61,8 @@ Post paths: `{pathPrefix}/{slug}` where slug comes from frontmatter or filename.
 | --- | --- |
 | `content/blog/*.md` | Create markdown posts with frontmatter |
 | `pages/blog.ts` | Call `createBlog()`, map `listings` and `posts` to `createPage()` |
-| `server.ts` | Register `...blogListingPages` and `...blogPostPages` in `createSite({ pages })` |
+| `server.ts` | Register the default export plus `...blogListingPages` and `...blogPostPages` in `createSite({ pages, plugins })` |
+| `package.json` | Add `"build": "stackbox-cms build"` so registered plugin assets are copied |
 | `templates/site-template.ts` | Reuse existing site template (or create one) — blog does not ship its own |
 
 ## Markdown contract
@@ -121,10 +123,12 @@ export const blogPostPages = blog.posts.map((post) =>
 
 ```ts
 // server.ts
+import blogPlugin from "@stackbox/cms/plugins/blog";
 import { blogListingPages, blogPostPages } from "./pages/blog";
 
 export default createSite(siteConfig, {
   pages: [homePage, ...blogListingPages, ...blogPostPages],
+  plugins: [blogPlugin],
 });
 ```
 

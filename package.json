@@ -14,7 +14,6 @@
   },
   "files": [
     "dist",
-    "AGENTS.md",
     "src/plugins"
   ],
   "exports": {
@@ -30,13 +29,24 @@
       "types": "./dist/plugins/random-quote/index.d.ts",
       "import": "./dist/plugins/random-quote/index.js"
     },
+    "./plugins/sitemap": {
+      "types": "./dist/plugins/sitemap/index.d.ts",
+      "import": "./dist/plugins/sitemap/index.js"
+    },
     "./link": {
       "types": "./dist/link.d.ts",
       "import": "./dist/link.js"
+    },
+    "./build": {
+      "types": "./dist/build.d.ts",
+      "import": "./dist/build.js"
     }
   },
+  "bin": {
+    "stackbox-cms": "./dist/cli.js"
+  },
   "scripts": {
-    "build": "tsc -p tsconfig.json && node scripts/copy-plugin-assets.mjs",
+    "build": "node scripts/emit-dist.mjs && node scripts/copy-plugin-assets.mjs && node scripts/generate-agents-md.mjs",
     "test": "npm run build && node --import tsx --test test/*.test.ts",
     "typecheck": "tsc --noEmit -p tsconfig.json",
     "prepack": "npm run build"

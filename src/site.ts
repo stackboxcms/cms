@@ -2,6 +2,11 @@ import type { SitePage } from "./pages.js";
 import { isPage } from "./pages.js";
 import { renderPage } from "./render-page.js";
 import { servePluginAsset } from "./link.js";
+import {
+  assertPlugin,
+  type Plugin,
+  type PluginRoute,
+} from "./plugin.js";
 import { normalizePathname } from "./routing.js";
 import { createContext } from "./stackbox/context.js";
 
@@ -18,6 +23,7 @@ export type Site<
   readonly __kind: "site";
   readonly siteConfig: SiteConfig<T>;
   readonly pages: readonly SitePage[];
+  readonly plugins: readonly Plugin[];
   fetch(
     request: globalThis.Request,
     env?: Record<string, unknown>,
@@ -83,9 +89,59 @@ function buildPageMap(pages: readonly SitePage[]): Map<string, SitePage> {
   return map;
 }
 
+function assertUniquePluginNames(plugins: readonly Plugin[]): void {
+  const seen = new Set<string>();
+  for (const plugin of plugins) {
+    if (seen.has(plugin.name)) {
+      throw new SiteError(
+        `createSite(siteConfig, options): duplicate plugin name "${plugin.name}"`,
+      );
+    }
+    seen.add(plugin.name);
+  }
+}
+
+function collectPluginRoutes(
+  plugins: readonly Plugin[],
+  site: Site,
+  pagePaths: ReadonlySet<string>,
+): Map<string, PluginRoute["fetch"]> {
+  const routes = new Map<string, PluginRoute["fetch"]>();
+
+  for (const plugin of plugins) {
+    if (!plugin.routes) {
+      continue;
+    }
+
+    const declared = plugin.routes({ site });
+    if (declared instanceof Promise) {
+      throw new SiteError(
+        `createSite(siteConfig, options): plugin "${plugin.name}" routes must return synchronously`,
+      );
+    }
+
+    for (const route of declared) {
+      const path = normalizePathname(route.path);
+      if (pagePaths.has(path)) {
+        throw new SiteError(
+          `createSite(siteConfig, options): plugin route "${path}" conflicts with a page path`,
+        );
+      }
+      if (routes.has(path)) {
+        throw new SiteError(
+          `createSite(siteConfig, options): duplicate plugin route "${path}"`,
+        );
+      }
+      routes.set(path, route.fetch);
+    }
+  }
+
+  return routes;
+}
+
 export function createSite<T extends Record<string, unknown>>(
   siteConfig: SiteConfig<T>,
-  options: { pages: [SitePage, ...SitePage[]] },
+  options: { pages: [SitePage, ...SitePage[]]; plugins?: readonly Plugin[] },
 ): Site<T> {
   if (!isSiteConfig(siteConfig)) {
     throw new SiteError(
@@ -108,25 +164,60 @@ export function createSite<T extends Record<string, unknown>>(
     }
   }
 
+  const plugins = options.plugins ?? [];
+  if (!Array.isArray(plugins)) {
+    throw new SiteError(
+      "createSite(siteConfig, options): plugins must be an array of createPlugin() results",
+    );
+  }
+  for (const plugin of plugins) {
+    try {
+      assertPlugin(plugin, "createSite(siteConfig, options)");
+    } catch (error) {
+      throw new SiteError(
+        error instanceof Error ? error.message : String(error),
+      );
+    }
+  }
+  assertUniquePluginNames(plugins);
+
   assertUniquePaths(pages);
 
   const pageMap = buildPageMap(pages);
+  const pagePaths = new Set(pageMap.keys());
+
+  const siteShell: Site<T> = {
+    __kind: "site" as const,
+    siteConfig,
+    pages,
+    plugins,
+    async fetch() {
+      return new globalThis.Response("Site not ready", { status: 500 });
+    },
+  };
+
+  const pluginRoutes = collectPluginRoutes(plugins, siteShell, pagePaths);
 
   return {
     __kind: "site" as const,
     siteConfig,
     pages,
+    plugins,
     async fetch(request, env = {}) {
       const ctx = createContext(request, env);
       const method = ctx.req.method;
+      const pathname = normalizePathname(ctx.req.url.pathname);
+
+      const pluginRoute = pluginRoutes.get(pathname);
+      if (pluginRoute) {
+        return pluginRoute(request, ctx);
+      }
 
       if (method !== "GET" && method !== "HEAD") {
         return ctx.res.text("Method Not Allowed", { status: 405 });
       }
 
-      const pathname = normalizePathname(ctx.req.url.pathname);
-
-      const pluginAsset = servePluginAsset(pathname, method);
+      const pluginAsset = servePluginAsset(pathname, method, plugins);
       if (pluginAsset) {
         return pluginAsset;
       }
@@ -155,6 +246,7 @@ export function isSite(value: unknown): value is Site {
     (value as Site).__kind === "site" &&
     isSiteConfig((value as Site).siteConfig) &&
     Array.isArray((value as Site).pages) &&
+    Array.isArray((value as Site).plugins) &&
     typeof (value as Site).fetch === "function"
   );
 }

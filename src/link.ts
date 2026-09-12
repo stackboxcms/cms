@@ -1,6 +1,6 @@
 import { existsSync, readFileSync } from "node:fs";
-import { dirname, join, normalize, sep } from "node:path";
-import { fileURLToPath } from "node:url";
+import { join, normalize, sep } from "node:path";
+import type { Plugin } from "./plugin.js";
 import { normalizePathname } from "./routing.js";
 
 export const PLUGIN_PUBLIC_PREFIX = "/_sb/plugins";
@@ -87,21 +87,6 @@ export function parsePluginAssetRequest(
   return { plugin, relativePath };
 }
 
-export function getPluginPublicRootDir(): string {
-  const here = dirname(fileURLToPath(import.meta.url));
-  const fromDist = join(here, "public", "_sb", "plugins");
-  if (existsSync(fromDist)) {
-    return fromDist;
-  }
-
-  const fromSrcDev = join(here, "..", "dist", "public", "_sb", "plugins");
-  if (existsSync(fromSrcDev)) {
-    return fromSrcDev;
-  }
-
-  return fromDist;
-}
-
 function contentTypeForPath(relativePath: string): string {
   const dot = relativePath.lastIndexOf(".");
   if (dot === -1) {
@@ -111,9 +96,11 @@ function contentTypeForPath(relativePath: string): string {
     "application/octet-stream";
 }
 
-function resolvePluginAssetFile(request: PluginAssetRequest): string | null {
-  const root = getPluginPublicRootDir();
-  const absolute = normalize(join(root, request.plugin, request.relativePath));
+function resolveFileInDir(root: string, relativePath: string): string | null {
+  if (!existsSync(root)) {
+    return null;
+  }
+  const absolute = normalize(join(root, relativePath));
   const rootWithSep = root.endsWith(sep) ? root : `${root}${sep}`;
   if (!absolute.startsWith(rootWithSep)) {
     return null;
@@ -127,13 +114,19 @@ function resolvePluginAssetFile(request: PluginAssetRequest): string | null {
 export function servePluginAsset(
   pathname: string,
   method: string,
+  plugins: readonly Plugin[] = [],
 ): globalThis.Response | null {
   const request = parsePluginAssetRequest(pathname);
   if (!request) {
     return null;
   }
 
-  const filePath = resolvePluginAssetFile(request);
+  const plugin = plugins.find((entry) => entry.name === request.plugin);
+  if (!plugin) {
+    return new globalThis.Response("Not Found", { status: 404 });
+  }
+
+  const filePath = resolveFileInDir(plugin.publicAssetsDir, request.relativePath);
   if (!filePath) {
     return new globalThis.Response("Not Found", { status: 404 });
   }
