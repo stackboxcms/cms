@@ -103,6 +103,17 @@ export default createSite(siteConfig, {
 
 Pages and blocks may optionally set `source` (for example `import.meta.url`) so hooks can point editors or agents at the defining file.
 
+## Types
+
+Core types are exported as a single namespace:
+
+```ts
+import type { Stackbox } from "@stackbox/cms";
+
+type Page = Stackbox.Page;
+type SiteHooks = Stackbox.SiteHooks;
+```
+
 ## Project layout
 
 ```
