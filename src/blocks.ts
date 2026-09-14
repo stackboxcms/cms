@@ -8,12 +8,14 @@ export type Block = {
   readonly __kind: "block";
   readonly name: string;
   readonly cache?: CacheConfig;
+  readonly source?: string;
   render(ctx: RenderContext): BlockRenderResult;
 };
 
 type BlockDef<TOptions = undefined> = {
   name: string;
   cache?: CacheConfig;
+  source?: string;
   render(options: TOptions, ctx?: RenderContext): BlockRenderResult;
 };
 
@@ -46,6 +48,7 @@ export function createBlock<TOptions = undefined>(
     __kind: "block" as const,
     name: def.name,
     ...(def.cache !== undefined ? { cache: def.cache } : {}),
+    ...(def.source !== undefined ? { source: def.source } : {}),
     render: (ctx: RenderContext) => def.render(options as TOptions, ctx),
   })) as BlockFactory<TOptions>;
 }

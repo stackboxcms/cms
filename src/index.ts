@@ -18,6 +18,12 @@ export {
   type CacheEntry,
 } from "./cache.js";
 export {
+  type AfterRenderInfo,
+  type BeforeResponseInfo,
+  type RenderSlotItemInfo,
+  type SiteHooks,
+} from "./hooks.js";
+export {
   build,
   BuildError,
   loadSiteFromEntry,

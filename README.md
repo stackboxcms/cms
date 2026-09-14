@@ -72,6 +72,37 @@ createBlock({
 
 TTL merges settings from the site config, the page, and on-page blocks: highest `min` floors the result, lowest `max` caps it (default 1 day, hard cap 30 days). Responses include `Cache-Control`. Expired entries are served immediately while one background refresh runs per key.
 
+## Site hooks
+
+Extend rendering at runtime with an optional `hooks` object on `createSite`:
+
+```ts
+export default createSite(siteConfig, {
+  pages: [homePage],
+  hooks: {
+    shouldCache(request) {
+      return true;
+    },
+    renderSlotItem(html, info) {
+      return html;
+    },
+    afterRender(html, info) {
+      return html;
+    },
+    beforeResponse(response, info) {
+      return response;
+    },
+  },
+});
+```
+
+- **`shouldCache(request)`** — return `false` to skip the page cache for that request (page/block TTL still applies when it returns `true`)
+- **`renderSlotItem(html, info)`** — transform each slot item after it renders
+- **`afterRender(html, info)`** — transform the full page HTML
+- **`beforeResponse(response, info)`** — adjust page and 404 responses before they are returned
+
+Pages and blocks may optionally set `source` (for example `import.meta.url`) so hooks can point editors or agents at the defining file.
+
 ## Project layout
 
 ```

@@ -65,6 +65,41 @@ Stale entries are served immediately (stale-while-revalidate); one background re
 
 Disable caching for a whole site with `createSiteConfig({ cache: false })`. `createSite` accepts an optional `cacheAdapter` for tests or custom stores — do not overload `cache` on `createSite`.
 
+## Site hooks
+
+Optional runtime hooks on `createSite(siteConfig, { pages, plugins?, hooks? })`. All hooks are optional; omitting them preserves default behavior. Page/block `cache` TTL is unchanged — hooks do not replace that policy.
+
+```ts
+createSite(siteConfig, {
+  pages: [homePage],
+  hooks: {
+    shouldCache(request) {
+      return !new URL(request.url).searchParams.has("preview");
+    },
+    renderSlotItem(html, { item, slot, index, page, ctx }) {
+      return html;
+    },
+    afterRender(html, { page, ctx }) {
+      return html;
+    },
+    beforeResponse(response, { request, page, ctx }) {
+      return response;
+    },
+  },
+});
+```
+
+| Hook | When | Signature |
+| --- | --- | --- |
+| `shouldCache` | Before the page cache adapter runs | `(request: Request) => boolean` — `false` skips the adapter for that request; `true` uses page/block TTL |
+| `renderSlotItem` | After each slot item (block or HTML string) renders | `(html, info) => string` |
+| `afterRender` | After the full page HTML is assembled | `(html, info) => string` |
+| `beforeResponse` | Before `fetch` returns a page or 404 response | `(response, info) => Response` |
+
+Plugin routes and `/_sb/plugins/` assets do not run render hooks. `beforeResponse` does not wrap plugin route responses.
+
+Optional `source?: string` on `createPage` and `createBlock` (e.g. `import.meta.url`) is metadata for hook consumers — the engine stores it as given.
+
 ## Plugins vs blocks
 
 - **Plugin** — a packaged use-case (bundled under `@stackbox/cms/plugins/<name>`, or a third-party package with the same shape). **Default-exports** a `createPlugin()` registration object, plus named factories, content objects, blocks, types, and helpers.

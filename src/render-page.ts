@@ -5,6 +5,7 @@ import {
   toPageRenderView,
   PageValidationError,
 } from "./pages.js";
+import type { SiteHooks } from "./hooks.js";
 import type { SiteConfig } from "./site.js";
 import type { Stackbox } from "./stackbox/context.js";
 import { slotHasContent } from "./slot-content.js";
@@ -28,10 +29,11 @@ export async function renderPage(
   page: SitePage,
   siteConfig: SiteConfig,
   ctx?: Stackbox.Context,
+  hooks?: SiteHooks,
 ): Promise<string> {
   validateRequiredSlots(page);
 
-  const renderCtx: RenderContext = { siteConfig, ctx };
+  const renderCtx: RenderContext = { siteConfig, ctx, page, hooks };
 
   const slots = buildPageSlots(page, renderCtx);
 
@@ -40,7 +42,7 @@ export async function renderPage(
     meta: page.meta,
   });
 
-  return renderAsync(
+  let html = await renderAsync(
     page.template.render({
       head,
       siteConfig,
@@ -48,4 +50,10 @@ export async function renderPage(
       slots,
     }),
   );
+
+  if (hooks?.afterRender) {
+    html = await hooks.afterRender(html, { page, ctx });
+  }
+
+  return html;
 }

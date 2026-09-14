@@ -1,6 +1,6 @@
-import { html, type HSHtml } from "@hyperspan/html";
+import { html, renderAsync, type HSHtml } from "@hyperspan/html";
 import type { z } from "zod";
-import { isBlock } from "./blocks.js";
+import { isBlock, type Block } from "./blocks.js";
 import type { SitePage, RenderContext } from "./pages.js";
 import {
   type DefaultSlotContent,
@@ -43,6 +43,30 @@ export type TemplateSlotsFrom<S extends readonly SlotDefinition[]> = {
   >;
 };
 
+async function renderSlotItemHtml(
+  slotName: string,
+  item: unknown,
+  ctx: RenderContext,
+  schema: z.ZodTypeAny | undefined,
+): Promise<string> {
+  try {
+    validateSlotContentItem(slotName, item, schema);
+  } catch (err) {
+    throw new RenderError(err instanceof Error ? err.message : String(err));
+  }
+
+  if (typeof item === "string") {
+    return item;
+  }
+  if (isBlock(item)) {
+    const rendered = await item.render(ctx);
+    return renderAsync(rendered);
+  }
+  throw new RenderError(
+    "invalid slot content; expected block or HTML string",
+  );
+}
+
 export function renderSlotContent(
   slotName: string,
   items: readonly unknown[],
@@ -50,24 +74,21 @@ export function renderSlotContent(
   schema: z.ZodTypeAny | undefined,
 ): Promise<HSHtml> {
   return Promise.all(
-    items.map(async (item) => {
-      try {
-        validateSlotContentItem(slotName, item, schema);
-      } catch (err) {
-        throw new RenderError(
-          err instanceof Error ? err.message : String(err),
-        );
+    items.map(async (item, index) => {
+      let htmlString = await renderSlotItemHtml(slotName, item, ctx, schema);
+
+      const hook = ctx.hooks?.renderSlotItem;
+      if (hook && ctx.page) {
+        htmlString = await hook(htmlString, {
+          item: item as Block | string,
+          slot: slotName,
+          index,
+          page: ctx.page,
+          ctx: ctx.ctx,
+        });
       }
 
-      if (typeof item === "string") {
-        return html.raw(item);
-      }
-      if (isBlock(item)) {
-        return item.render(ctx);
-      }
-      throw new RenderError(
-        "invalid slot content; expected block or HTML string",
-      );
+      return html.raw(htmlString);
     }),
   ).then((chunks) => html`${chunks}`);
 }

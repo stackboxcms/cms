@@ -10,6 +10,7 @@ import {
   resolvePageCacheTtlMs,
   type CacheAdapter,
 } from "./cache.js";
+import type { SiteHooks } from "./hooks.js";
 import type { SitePage } from "./pages.js";
 import { isPage } from "./pages.js";
 import { renderPage } from "./render-page.js";
@@ -157,6 +158,7 @@ export function createSite<T extends Record<string, unknown>>(
     pages: [SitePage, ...SitePage[]];
     plugins?: readonly Plugin[];
     cacheAdapter?: CacheAdapter;
+    hooks?: SiteHooks;
   },
 ): Site<T> {
   if (!isSiteConfig(siteConfig)) {
@@ -214,7 +216,20 @@ export function createSite<T extends Record<string, unknown>>(
 
   const pluginRoutes = collectPluginRoutes(plugins, siteShell, pagePaths);
   const cacheAdapter = options.cacheAdapter ?? createMemoryCache();
+  const hooks = options.hooks;
   const inFlightRenders = new Map<string, Promise<string>>();
+
+  async function applyBeforeResponse(
+    response: globalThis.Response,
+    request: globalThis.Request,
+    ctx: ReturnType<typeof createContext>,
+    page?: SitePage,
+  ): Promise<globalThis.Response> {
+    if (!hooks?.beforeResponse) {
+      return response;
+    }
+    return hooks.beforeResponse(response, { request, page, ctx });
+  }
 
   async function renderAndStore(
     key: string,
@@ -228,7 +243,7 @@ export function createSite<T extends Record<string, unknown>>(
     }
 
     const promise = (async () => {
-      const html = await renderPage(page, siteConfig, ctx);
+      const html = await renderPage(page, siteConfig, ctx, hooks);
       if (isSuccessfulRender(html)) {
         await cacheAdapter.set(key, {
           html,
@@ -304,36 +319,50 @@ export function createSite<T extends Record<string, unknown>>(
       const page = pageMap.get(pathname);
 
       if (!page) {
-        return ctx.res.notFound();
+        return applyBeforeResponse(
+          await ctx.res.notFound(),
+          request,
+          ctx,
+        );
       }
 
       const cacheKey = buildPageCacheKey(pathname, ctx.req.url.search);
       const cacheConfigs = collectPageCacheConfigs(page, siteConfig);
+      const hookAllowsCache = hooks?.shouldCache
+        ? hooks.shouldCache(request)
+        : true;
 
-      if (isPageCacheDisabled(cacheConfigs)) {
-        const html = await renderPage(page, siteConfig, ctx);
-        return respondWithHtml(html, method, "no-store", ctx);
+      async function respondForPage(
+        html: string,
+        cacheControl: string,
+      ): Promise<globalThis.Response> {
+        return applyBeforeResponse(
+          await respondWithHtml(html, method, cacheControl, ctx),
+          request,
+          ctx,
+          page,
+        );
+      }
+
+      if (isPageCacheDisabled(cacheConfigs) || !hookAllowsCache) {
+        const html = await renderPage(page, siteConfig, ctx, hooks);
+        return respondForPage(html, "no-store");
       }
 
       const ttlMs = resolvePageCacheTtlMs(cacheConfigs);
       const cached = await cacheAdapter.get(cacheKey);
 
       if (cached && isCacheEntryFresh(cached)) {
-        return respondWithHtml(cached.html, method, cacheControlFresh(ttlMs), ctx);
+        return respondForPage(cached.html, cacheControlFresh(ttlMs));
       }
 
       if (cached) {
         startBackgroundRefresh(cacheKey, page, ctx, ttlMs);
-        return respondWithHtml(
-          cached.html,
-          method,
-          cacheControlStale(ttlMs),
-          ctx,
-        );
+        return respondForPage(cached.html, cacheControlStale(ttlMs));
       }
 
       const html = await renderAndStore(cacheKey, page, ctx, ttlMs);
-      return respondWithHtml(html, method, cacheControlFresh(ttlMs), ctx);
+      return respondForPage(html, cacheControlFresh(ttlMs));
     },
   };
 }
