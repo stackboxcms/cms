@@ -2,11 +2,9 @@ import { writeFileSync } from "node:fs";
 import { join } from "node:path";
 import {
   createPlugin,
-  type Plugin,
-  type PluginRouteContext,
 } from "../../plugin.js";
 import { normalizePathname } from "../../routing.js";
-import type { Site } from "../../site.js";
+import type { Stackbox as SB } from "../../types.js";
 
 export type SitemapOptions = {
   /** Site origin. Defaults to `siteConfig.config.url`. */
@@ -16,7 +14,7 @@ export type SitemapOptions = {
   exclude?: readonly string[] | ((path: string) => boolean);
 };
 
-function resolveBaseUrl(site: Site, options: SitemapOptions): string {
+function resolveBaseUrl(site: SB.Site, options: SitemapOptions): string {
   const raw = options.baseUrl ?? site.siteConfig.config.url;
   if (typeof raw !== "string" || raw.trim().length === 0) {
     throw new Error("sb-sitemap: baseUrl or siteConfig.url is required");
@@ -49,7 +47,7 @@ function isNoindexPage(page: { meta?: { robots?: string } }): boolean {
 }
 
 export function collectSitemapUrls(
-  site: Site,
+  site: SB.Site,
   options: SitemapOptions = {},
 ): string[] {
   const base = resolveBaseUrl(site, options);
@@ -91,7 +89,7 @@ function escapeXml(text: string): string {
 }
 
 export function renderSitemapXml(
-  site: Site,
+  site: SB.Site,
   options: SitemapOptions = {},
 ): string {
   const urls = collectSitemapUrls(site, options);
@@ -117,7 +115,7 @@ function sitemapResponse(
 }
 
 function createSitemapRoutes(
-  ctx: PluginRouteContext,
+  ctx: SB.PluginRouteContext,
   options: SitemapOptions,
 ) {
   return [
@@ -131,7 +129,7 @@ function createSitemapRoutes(
   ] as const;
 }
 
-export function createSitemap(options: SitemapOptions = {}): Plugin {
+export function createSitemap(options: SitemapOptions = {}): SB.Plugin {
   return createPlugin({
     name: "sb-sitemap",
     description:

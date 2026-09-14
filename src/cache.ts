@@ -1,26 +1,11 @@
-import { isBlock, type Block } from "./blocks.js";
-import type { SitePage } from "./pages.js";
-import type { SiteConfig } from "./site.js";
+import { isBlock } from "./blocks.js";
+import type { Stackbox as SB } from "./types.js";
 
 export const DEFAULT_CACHE_TTL_MS = 24 * 60 * 60 * 1000;
 export const MAX_CACHE_TTL_MS = 30 * 24 * 60 * 60 * 1000;
 
-export type CacheBounds = { min?: number; max?: number };
-
-export type CacheConfig = CacheBounds | false;
-
-export type CacheEntry = {
-  html: string;
-  expiresAt: number;
-};
-
-export type CacheAdapter = {
-  get(key: string): CacheEntry | undefined | Promise<CacheEntry | undefined>;
-  set(key: string, entry: CacheEntry): void | Promise<void>;
-};
-
-export function createMemoryCache(): CacheAdapter {
-  const store = new Map<string, CacheEntry>();
+export function createMemoryCache(): SB.CacheAdapter {
+  const store = new Map<string, SB.CacheEntry>();
   return {
     get(key) {
       return store.get(key);
@@ -31,7 +16,7 @@ export function createMemoryCache(): CacheAdapter {
   };
 }
 
-function isCacheBounds(value: unknown): value is CacheBounds {
+function isCacheBounds(value: unknown): value is SB.CacheBounds {
   return (
     typeof value === "object" &&
     value !== null &&
@@ -40,14 +25,14 @@ function isCacheBounds(value: unknown): value is CacheBounds {
   );
 }
 
-export function isCacheConfig(value: unknown): value is CacheConfig {
+export function isCacheConfig(value: unknown): value is SB.CacheConfig {
   if (value === false) {
     return true;
   }
   return isCacheBounds(value);
 }
 
-function readCacheConfig(value: unknown): CacheConfig | undefined {
+function readCacheConfig(value: unknown): SB.CacheConfig | undefined {
   if (value === undefined) {
     return undefined;
   }
@@ -61,10 +46,10 @@ function readCacheConfig(value: unknown): CacheConfig | undefined {
 }
 
 export function collectPageCacheConfigs(
-  page: SitePage,
-  siteConfig: SiteConfig,
-): (CacheConfig | undefined)[] {
-  const configs: (CacheConfig | undefined)[] = [
+  page: SB.SitePage,
+  siteConfig: SB.SiteConfig,
+): (SB.CacheConfig | undefined)[] {
+  const configs: (SB.CacheConfig | undefined)[] = [
     readCacheConfig(page.cache),
     readCacheConfig(siteConfig.config.cache),
   ];
@@ -83,12 +68,12 @@ export function collectPageCacheConfigs(
   return configs;
 }
 
-export function isPageCacheDisabled(configs: readonly (CacheConfig | undefined)[]): boolean {
+export function isPageCacheDisabled(configs: readonly (SB.CacheConfig | undefined)[]): boolean {
   return configs.some((config) => config === false);
 }
 
 export function resolvePageCacheTtlMs(
-  configs: readonly (CacheConfig | undefined)[],
+  configs: readonly (SB.CacheConfig | undefined)[],
 ): number {
   const bounds = configs.filter(isCacheBounds);
 
@@ -126,7 +111,7 @@ export function cacheControlStale(ttlMs: number): string {
   return `public, max-age=0, stale-while-revalidate=${seconds}`;
 }
 
-export function isCacheEntryFresh(entry: CacheEntry, now = Date.now()): boolean {
+export function isCacheEntryFresh(entry: SB.CacheEntry, now = Date.now()): boolean {
   return entry.expiresAt > now;
 }
 

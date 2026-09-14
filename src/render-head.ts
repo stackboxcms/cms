@@ -1,9 +1,9 @@
 import { html, type HSHtml } from "@hyperspan/html";
-import type { PageMeta } from "./pages.js";
+import type { Stackbox as SB } from "./types.js";
 
 export function renderStandardHead(input: {
   title: string;
-  meta?: PageMeta;
+  meta?: SB.PageMeta;
 }): HSHtml {
   const { title, meta = {} } = input;
   const ogTitle = meta.ogTitle ?? title;

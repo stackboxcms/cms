@@ -1,33 +1,12 @@
-import type { RenderContext } from "./pages.js";
-import type { CacheConfig } from "./cache.js";
 import type { HSHtml } from "@hyperspan/html";
-
-export type BlockRenderResult = HSHtml | Promise<HSHtml>;
-
-export type Block = {
-  readonly __kind: "block";
-  readonly name: string;
-  readonly cache?: CacheConfig;
-  readonly source?: string;
-  render(ctx: RenderContext): BlockRenderResult;
-};
+import type { Stackbox as SB } from "./types.js";
 
 type BlockDef<TOptions = undefined> = {
   name: string;
-  cache?: CacheConfig;
+  cache?: SB.CacheConfig;
   source?: string;
-  render(options: TOptions, ctx?: RenderContext): BlockRenderResult;
+  render(options: TOptions, ctx?: SB.RenderContext): SB.BlockRenderResult;
 };
-
-export type BlockOptionsOf<F> = F extends (options?: infer O) => unknown
-  ? [O] extends [undefined]
-    ? undefined
-    : O
-  : never;
-
-export type BlockFactory<TOptions = undefined> = (
-  options?: TOptions,
-) => Block;
 
 function validateBlockName(name: string): void {
   if (!name || name.length === 0) {
@@ -37,7 +16,7 @@ function validateBlockName(name: string): void {
 
 export function createBlock<TOptions = undefined>(
   def: BlockDef<TOptions>,
-): BlockFactory<TOptions> {
+): SB.BlockFactory<TOptions> {
   validateBlockName(def.name);
 
   if (typeof def.render !== "function") {
@@ -49,17 +28,17 @@ export function createBlock<TOptions = undefined>(
     name: def.name,
     ...(def.cache !== undefined ? { cache: def.cache } : {}),
     ...(def.source !== undefined ? { source: def.source } : {}),
-    render: (ctx: RenderContext) => def.render(options as TOptions, ctx),
-  })) as BlockFactory<TOptions>;
+    render: (ctx: SB.RenderContext) => def.render(options as TOptions, ctx),
+  })) as SB.BlockFactory<TOptions>;
 }
 
-export function isBlock(value: unknown): value is Block {
+export function isBlock(value: unknown): value is SB.Block {
   return (
     typeof value === "object" &&
     value !== null &&
-    (value as Block).__kind === "block" &&
-    typeof (value as Block).name === "string" &&
-    (value as Block).name.length > 0 &&
-    typeof (value as Block).render === "function"
+    (value as SB.Block).__kind === "block" &&
+    typeof (value as SB.Block).name === "string" &&
+    (value as SB.Block).name.length > 0 &&
+    typeof (value as SB.Block).render === "function"
   );
 }

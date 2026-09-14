@@ -1,6 +1,5 @@
 import { createPlugin } from "../../plugin.js";
-import type { PageMeta } from "../../pages.js";
-import type { DefaultSlotContent } from "../../slot-content.js";
+import type { Stackbox as SB } from "../../types.js";
 import { loadPosts, type BlogOptions, type BlogPost } from "./posts.js";
 
 export default createPlugin({
@@ -25,13 +24,13 @@ export type { BlogPost, BlogOptions } from "./posts.js";
 export type BlogPostContent = {
   path: string;
   title: string;
-  meta?: PageMeta;
-  content: DefaultSlotContent[];
+  meta?: SB.PageMeta;
+  content: SB.DefaultSlotContent[];
 };
 
 export type BlogListingContent = {
   path: string;
-  content: DefaultSlotContent[];
+  content: SB.DefaultSlotContent[];
 };
 
 export type Blog = {

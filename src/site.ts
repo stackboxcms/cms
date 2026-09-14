@@ -8,40 +8,16 @@ import {
   isPageCacheDisabled,
   isSuccessfulRender,
   resolvePageCacheTtlMs,
-  type CacheAdapter,
 } from "./cache.js";
-import type { SiteHooks } from "./hooks.js";
-import type { SitePage } from "./pages.js";
 import { isPage } from "./pages.js";
 import { renderPage } from "./render-page.js";
 import { servePluginAsset } from "./link.js";
 import {
   assertPlugin,
-  type Plugin,
-  type PluginRoute,
 } from "./plugin.js";
 import { normalizePathname } from "./routing.js";
 import { createContext } from "./stackbox/context.js";
-
-export type SiteConfig<
-  T extends Record<string, unknown> = Record<string, unknown>,
-> = {
-  readonly __kind: "siteConfig";
-  readonly config: T;
-};
-
-export type Site<
-  T extends Record<string, unknown> = Record<string, unknown>,
-> = {
-  readonly __kind: "site";
-  readonly siteConfig: SiteConfig<T>;
-  readonly pages: readonly SitePage[];
-  readonly plugins: readonly Plugin[];
-  fetch(
-    request: globalThis.Request,
-    env?: Record<string, unknown>,
-  ): Promise<globalThis.Response>;
-};
+import type { Stackbox as SB } from "./types.js";
 
 export class SiteError extends Error {
   constructor(message: string) {
@@ -61,7 +37,7 @@ function validateConfigObject(config: unknown, label: string): void {
 
 export function createSiteConfig<T extends Record<string, unknown>>(
   config: T,
-): SiteConfig<T> {
+): SB.SiteConfig<T> {
   validateConfigObject(config, "createSiteConfig(config)");
   return {
     __kind: "siteConfig" as const,
@@ -69,18 +45,18 @@ export function createSiteConfig<T extends Record<string, unknown>>(
   };
 }
 
-export function isSiteConfig(value: unknown): value is SiteConfig {
+export function isSiteConfig(value: unknown): value is SB.SiteConfig {
   return (
     typeof value === "object" &&
     value !== null &&
-    (value as SiteConfig).__kind === "siteConfig" &&
-    typeof (value as SiteConfig).config === "object" &&
-    (value as SiteConfig).config !== null &&
-    !Array.isArray((value as SiteConfig).config)
+    (value as SB.SiteConfig).__kind === "siteConfig" &&
+    typeof (value as SB.SiteConfig).config === "object" &&
+    (value as SB.SiteConfig).config !== null &&
+    !Array.isArray((value as SB.SiteConfig).config)
   );
 }
 
-function assertUniquePaths(pages: SitePage[]): void {
+function assertUniquePaths(pages: SB.SitePage[]): void {
   const seen = new Map<string, string>();
 
   for (const page of pages) {
@@ -94,15 +70,15 @@ function assertUniquePaths(pages: SitePage[]): void {
   }
 }
 
-function buildPageMap(pages: readonly SitePage[]): Map<string, SitePage> {
-  const map = new Map<string, SitePage>();
+function buildPageMap(pages: readonly SB.SitePage[]): Map<string, SB.SitePage> {
+  const map = new Map<string, SB.SitePage>();
   for (const page of pages) {
     map.set(normalizePathname(page.path), page);
   }
   return map;
 }
 
-function assertUniquePluginNames(plugins: readonly Plugin[]): void {
+function assertUniquePluginNames(plugins: readonly SB.Plugin[]): void {
   const seen = new Set<string>();
   for (const plugin of plugins) {
     if (seen.has(plugin.name)) {
@@ -115,11 +91,11 @@ function assertUniquePluginNames(plugins: readonly Plugin[]): void {
 }
 
 function collectPluginRoutes(
-  plugins: readonly Plugin[],
-  site: Site,
+  plugins: readonly SB.Plugin[],
+  site: SB.Site,
   pagePaths: ReadonlySet<string>,
-): Map<string, PluginRoute["fetch"]> {
-  const routes = new Map<string, PluginRoute["fetch"]>();
+): Map<string, SB.PluginRoute["fetch"]> {
+  const routes = new Map<string, SB.PluginRoute["fetch"]>();
 
   for (const plugin of plugins) {
     if (!plugin.routes) {
@@ -153,14 +129,14 @@ function collectPluginRoutes(
 }
 
 export function createSite<T extends Record<string, unknown>>(
-  siteConfig: SiteConfig<T>,
+  siteConfig: SB.SiteConfig<T>,
   options: {
-    pages: [SitePage, ...SitePage[]];
-    plugins?: readonly Plugin[];
-    cacheAdapter?: CacheAdapter;
-    hooks?: SiteHooks;
+    pages: [SB.SitePage, ...SB.SitePage[]];
+    plugins?: readonly SB.Plugin[];
+    cacheAdapter?: SB.CacheAdapter;
+    hooks?: SB.SiteHooks;
   },
-): Site<T> {
+): SB.Site<T> {
   if (!isSiteConfig(siteConfig)) {
     throw new SiteError(
       "createSite(siteConfig, options): siteConfig must be from createSiteConfig()",
@@ -204,7 +180,7 @@ export function createSite<T extends Record<string, unknown>>(
   const pageMap = buildPageMap(pages);
   const pagePaths = new Set(pageMap.keys());
 
-  const siteShell: Site<T> = {
+  const siteShell: SB.Site<T> = {
     __kind: "site" as const,
     siteConfig,
     pages,
@@ -223,7 +199,7 @@ export function createSite<T extends Record<string, unknown>>(
     response: globalThis.Response,
     request: globalThis.Request,
     ctx: ReturnType<typeof createContext>,
-    page?: SitePage,
+    page?: SB.SitePage,
   ): Promise<globalThis.Response> {
     if (!hooks?.beforeResponse) {
       return response;
@@ -233,7 +209,7 @@ export function createSite<T extends Record<string, unknown>>(
 
   async function renderAndStore(
     key: string,
-    page: SitePage,
+    page: SB.SitePage,
     ctx: ReturnType<typeof createContext>,
     ttlMs: number,
   ): Promise<string> {
@@ -266,7 +242,7 @@ export function createSite<T extends Record<string, unknown>>(
 
   function startBackgroundRefresh(
     key: string,
-    page: SitePage,
+    page: SB.SitePage,
     ctx: ReturnType<typeof createContext>,
     ttlMs: number,
   ): void {
@@ -367,14 +343,14 @@ export function createSite<T extends Record<string, unknown>>(
   };
 }
 
-export function isSite(value: unknown): value is Site {
+export function isSite(value: unknown): value is SB.Site {
   return (
     typeof value === "object" &&
     value !== null &&
-    (value as Site).__kind === "site" &&
-    isSiteConfig((value as Site).siteConfig) &&
-    Array.isArray((value as Site).pages) &&
-    Array.isArray((value as Site).plugins) &&
-    typeof (value as Site).fetch === "function"
+    (value as SB.Site).__kind === "site" &&
+    isSiteConfig((value as SB.Site).siteConfig) &&
+    Array.isArray((value as SB.Site).pages) &&
+    Array.isArray((value as SB.Site).plugins) &&
+    typeof (value as SB.Site).fetch === "function"
   );
 }

@@ -1,74 +1,4 @@
-export namespace Stackbox {
-  export type CookieOptions = {
-    maxAge?: number;
-    domain?: string;
-    path?: string;
-    expires?: Date;
-    httpOnly?: boolean;
-    secure?: boolean;
-    sameSite?: "lax" | "strict" | true;
-  };
-
-  export type Cookies = {
-    _req: globalThis.Request;
-    _responseHeaders: Headers | undefined;
-    _parsedCookies: Record<string, string>;
-    _encrypt: ((str: string) => string) | undefined;
-    _decrypt: ((str: string) => string) | undefined;
-    get: (name: string) => string | undefined;
-    set: (name: string, value: string, options?: CookieOptions) => void;
-    delete: (name: string) => void;
-  };
-
-  export type Request = {
-    url: URL;
-    raw: globalThis.Request;
-    method: string;
-    headers: Headers;
-    query: URLSearchParams;
-    cookies: Cookies;
-    text: () => Promise<string>;
-    json: <T = unknown>() => Promise<T>;
-    formData: () => Promise<FormData>;
-    urlencoded: () => Promise<URLSearchParams>;
-  };
-
-  export type Response = {
-    cookies: Cookies;
-    headers: Headers;
-    status: number | undefined;
-    html: (
-      html: string,
-      options?: ResponseInit,
-    ) => Promise<globalThis.Response>;
-    json: (
-      json: unknown,
-      options?: ResponseInit,
-    ) => Promise<globalThis.Response>;
-    text: (
-      text: string,
-      options?: ResponseInit,
-    ) => Promise<globalThis.Response>;
-    redirect: (
-      url: string,
-      options?: ResponseInit,
-    ) => Promise<globalThis.Response>;
-    error: (
-      error: Error,
-      options?: ResponseInit,
-    ) => Promise<globalThis.Response>;
-    notFound: (options?: ResponseInit) => Promise<globalThis.Response>;
-    merge: (response: globalThis.Response) => Promise<globalThis.Response>;
-  };
-
-  export interface Context<
-    TEnv extends Record<string, unknown> = Record<string, unknown>,
-  > {
-    env: TEnv;
-    req: Request;
-    res: Response;
-  }
-}
+import type { Stackbox as SB } from "../types.js";
 
 function parseCookieHeader(header: string): Record<string, string> {
   const cookies: Record<string, string> = {};
@@ -87,7 +17,7 @@ function parseCookieHeader(header: string): Record<string, string> {
 function serializeCookie(
   name: string,
   value: string,
-  options?: Stackbox.CookieOptions,
+  options?: SB.CookieOptions,
 ): string {
   let cookie = `${encodeURIComponent(name)}=${encodeURIComponent(value)}`;
   if (options?.maxAge !== undefined) cookie += `; Max-Age=${options.maxAge}`;
@@ -109,7 +39,7 @@ function createCookies(
   req: globalThis.Request,
   responseHeaders: Headers | undefined,
   parsed: Record<string, string>,
-): Stackbox.Cookies {
+): SB.Cookies {
   return {
     _req: req,
     _responseHeaders: responseHeaders,
@@ -119,7 +49,7 @@ function createCookies(
     get(name: string) {
       return parsed[name];
     },
-    set(name: string, value: string, options?: Stackbox.CookieOptions) {
+    set(name: string, value: string, options?: SB.CookieOptions) {
       if (!responseHeaders) return;
       parsed[name] = value;
       responseHeaders.append(
@@ -139,7 +69,7 @@ function createCookies(
 }
 
 function buildResponse(
-  res: Stackbox.Response,
+  res: SB.Response,
   body: BodyInit | null,
   init: ResponseInit = {},
 ): globalThis.Response {
@@ -158,8 +88,8 @@ function buildResponse(
 }
 
 function createStackboxResponse(
-  reqCookies: Stackbox.Cookies,
-): Stackbox.Response {
+  reqCookies: SB.Cookies,
+): SB.Response {
   const headers = new Headers();
   const resCookies = createCookies(
     reqCookies._req,
@@ -167,7 +97,7 @@ function createStackboxResponse(
     { ...reqCookies._parsedCookies },
   );
 
-  const res: Stackbox.Response = {
+  const res: SB.Response = {
     cookies: resCookies,
     headers,
     status: undefined,
@@ -229,13 +159,13 @@ function createStackboxResponse(
 
 export function createContext<
   TEnv extends Record<string, unknown> = Record<string, unknown>,
->(raw: globalThis.Request, env: TEnv = {} as TEnv): Stackbox.Context<TEnv> {
+>(raw: globalThis.Request, env: TEnv = {} as TEnv): SB.Context<TEnv> {
   const url = new URL(raw.url);
   const parsed = parseCookieHeader(raw.headers.get("Cookie") ?? "");
   const reqHeaders = new Headers(raw.headers);
   const reqCookies = createCookies(raw, undefined, parsed);
 
-  const req: Stackbox.Request = {
+  const req: SB.Request = {
     url,
     raw,
     method: raw.method.toUpperCase(),

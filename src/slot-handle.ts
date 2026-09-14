@@ -1,13 +1,10 @@
 import { html, renderAsync, type HSHtml } from "@hyperspan/html";
 import type { z } from "zod";
-import { isBlock, type Block } from "./blocks.js";
-import type { SitePage, RenderContext } from "./pages.js";
+import { isBlock } from "./blocks.js";
+import type { Stackbox as SB } from "./types.js";
 import {
-  type DefaultSlotContent,
-  type SlotContentFromDefinition,
   validateSlotContentItem,
 } from "./slot-content.js";
-import type { SlotDefinition, SlotNamesFrom } from "./templates.js";
 
 export class RenderError extends Error {
   constructor(message: string) {
@@ -22,31 +19,10 @@ export function slotSentinel(name: string): string {
   return `${SLOT_SENTINEL_PREFIX}${name}-->`;
 }
 
-type HtmlSafe = ReturnType<typeof html.raw>;
-export type { HSHtml } from "@hyperspan/html";
-export type SlotRenderValue = HSHtml | HtmlSafe | Promise<HSHtml>;
-
-export type Slot<
-  TContent = DefaultSlotContent,
-  D extends SlotDefinition = SlotDefinition,
-> = {
-  readonly name: D["name"];
-  readonly definition: D;
-  readonly content: readonly TContent[];
-  render(): SlotRenderValue;
-};
-
-export type TemplateSlotsFrom<S extends readonly SlotDefinition[]> = {
-  [K in SlotNamesFrom<S>]: Slot<
-    SlotContentFromDefinition<Extract<S[number], { name: K }>>,
-    Extract<S[number], { name: K }>
-  >;
-};
-
 async function renderSlotItemHtml(
   slotName: string,
   item: unknown,
-  ctx: RenderContext,
+  ctx: SB.RenderContext,
   schema: z.ZodTypeAny | undefined,
 ): Promise<string> {
   try {
@@ -70,7 +46,7 @@ async function renderSlotItemHtml(
 export function renderSlotContent(
   slotName: string,
   items: readonly unknown[],
-  ctx: RenderContext,
+  ctx: SB.RenderContext,
   schema: z.ZodTypeAny | undefined,
 ): Promise<HSHtml> {
   return Promise.all(
@@ -80,7 +56,7 @@ export function renderSlotContent(
       const hook = ctx.hooks?.renderSlotItem;
       if (hook && ctx.page) {
         htmlString = await hook(htmlString, {
-          item: item as Block | string,
+          item: item as SB.Block | string,
           slot: slotName,
           index,
           page: ctx.page,
@@ -94,8 +70,8 @@ export function renderSlotContent(
 }
 
 export function createStubSlot<
-  D extends SlotDefinition,
->(definition: D): Slot<DefaultSlotContent, D> {
+  D extends SB.SlotDefinition,
+>(definition: D): SB.Slot<SB.DefaultSlotContent, D> {
   return {
     name: definition.name,
     definition,
@@ -107,12 +83,12 @@ export function createStubSlot<
 }
 
 export function createPageSlot<
-  D extends SlotDefinition,
+  D extends SB.SlotDefinition,
 >(
   definition: D,
-  content: readonly SlotContentFromDefinition<D>[],
-  ctx: RenderContext,
-): Slot<SlotContentFromDefinition<D>, D> {
+  content: readonly SB.SlotContentFromDefinition<D>[],
+  ctx: SB.RenderContext,
+): SB.Slot<SB.SlotContentFromDefinition<D>, D> {
   const schema = definition.options?.schema;
   return {
     name: definition.name,
@@ -124,23 +100,23 @@ export function createPageSlot<
   };
 }
 
-export function buildStubSlots<S extends readonly SlotDefinition[]>(
+export function buildStubSlots<S extends readonly SB.SlotDefinition[]>(
   definitions: S,
-): TemplateSlotsFrom<S> {
-  const slots = {} as TemplateSlotsFrom<S>;
+): SB.TemplateSlotsFrom<S> {
+  const slots = {} as SB.TemplateSlotsFrom<S>;
   for (const def of definitions) {
-    slots[def.name as SlotNamesFrom<S>] = createStubSlot(
+    slots[def.name as SB.SlotNamesFrom<S>] = createStubSlot(
       def,
-    ) as TemplateSlotsFrom<S>[SlotNamesFrom<S>];
+    ) as SB.TemplateSlotsFrom<S>[SB.SlotNamesFrom<S>];
   }
   return slots;
 }
 
 export function buildPageSlots(
-  page: SitePage,
-  ctx: RenderContext,
-): Record<string, Slot> {
-  const slots: Record<string, Slot> = {};
+  page: SB.SitePage,
+  ctx: SB.RenderContext,
+): Record<string, SB.Slot> {
+  const slots: Record<string, SB.Slot> = {};
   const definitions = page.template.__definitions ?? [];
 
   for (const def of definitions) {

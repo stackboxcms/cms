@@ -5,9 +5,9 @@ import { register } from "node:module";
 import {
   copyRegisteredPluginAssets,
   runRegisteredPluginBuilds,
-  type Plugin,
 } from "./plugin.js";
-import { isSite, type Site } from "./site.js";
+import { isSite } from "./site.js";
+import type { Stackbox as SB } from "./types.js";
 
 const DEFAULT_SITE_ENTRIES = [
   "server.ts",
@@ -23,26 +23,6 @@ export class BuildError extends Error {
   }
 }
 
-export type BuildSettings = {
-  /** Compiled site output directory. */
-  readonly outDir: string;
-  /** Public HTTP files. Plugin `public_assets/` are copied here. */
-  readonly publicDir: string;
-};
-
-export type BuildOptions = {
-  site: Site;
-  /** Compiled site output. Default: `dist`. */
-  outDir?: string;
-  /** Public HTTP files. Default: `{outDir}/public`. */
-  publicDir?: string;
-};
-
-export type BuildResult = {
-  readonly settings: BuildSettings;
-  readonly plugins: readonly Plugin[];
-};
-
 function requireDirOption(value: unknown, label: string): string {
   if (typeof value !== "string" || value.trim().length === 0) {
     throw new BuildError(`build(): ${label} must be a non-empty string`);
@@ -51,8 +31,8 @@ function requireDirOption(value: unknown, label: string): string {
 }
 
 export function resolveBuildSettings(
-  options: Omit<BuildOptions, "site">,
-): BuildSettings {
+  options: Omit<SB.BuildOptions, "site">,
+): SB.BuildSettings {
   const outDir = requireDirOption(options.outDir ?? "dist", "outDir");
   const publicDir = requireDirOption(
     options.publicDir ?? join(outDir, "public"),
@@ -65,7 +45,7 @@ export function resolveBuildSettings(
  * Run the site build. Copies each registered plugin's `public_assets/` to
  * `{publicDir}/_sb/plugins/{name}/`, then runs plugin `build` hooks.
  */
-export async function build(options: BuildOptions): Promise<BuildResult> {
+export async function build(options: SB.BuildOptions): Promise<SB.BuildResult> {
   if (!options || typeof options !== "object" || Array.isArray(options)) {
     throw new BuildError("build(): site is required");
   }
@@ -86,13 +66,6 @@ export async function build(options: BuildOptions): Promise<BuildResult> {
   return { settings, plugins: options.site.plugins };
 }
 
-export type BuildCliArgs = {
-  readonly command: "build";
-  readonly site?: string;
-  readonly outDir?: string;
-  readonly publicDir?: string;
-};
-
 function readFlag(
   args: string[],
   index: number,
@@ -105,7 +78,7 @@ function readFlag(
   return { value, next: index + 2 };
 }
 
-export function parseBuildCliArgs(argv: string[]): BuildCliArgs {
+export function parseBuildCliArgs(argv: string[]): SB.BuildCliArgs {
   const args = argv.slice(2);
   let index = 0;
 
@@ -177,7 +150,7 @@ function ensureTsxRegistered(): void {
 export async function loadSiteFromEntry(
   entry: string,
   cwd = process.cwd(),
-): Promise<Site> {
+): Promise<SB.Site> {
   const absolute = resolve(cwd, entry);
   if (!existsSync(absolute)) {
     throw new BuildError(`stackbox-cms build: site entry not found: ${absolute}`);
@@ -205,7 +178,7 @@ export async function loadSiteFromEntry(
 export async function runBuildCli(
   argv: string[],
   cwd = process.cwd(),
-): Promise<BuildResult> {
+): Promise<SB.BuildResult> {
   const args = parseBuildCliArgs(argv);
   const entry = args.site
     ? resolve(cwd, args.site)

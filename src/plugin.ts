@@ -1,60 +1,6 @@
 import { cpSync, existsSync, mkdirSync, statSync } from "node:fs";
 import { join, resolve, sep } from "node:path";
-import type { Stackbox } from "./stackbox/context.js";
-import type { Site } from "./site.js";
-
-export type PluginRoute = {
-  path: string;
-  fetch: (
-    request: globalThis.Request,
-    ctx: Stackbox.Context,
-  ) => globalThis.Response | Promise<globalThis.Response>;
-};
-
-export type PluginRouteContext = {
-  site: Site;
-};
-
-export type PluginBuildContext = {
-  site: Site;
-  outDir: string;
-  publicDir: string;
-};
-
-export type Plugin = {
-  readonly __kind: "plugin";
-  readonly name: string;
-  readonly description: string;
-  readonly version: string;
-  readonly keywords: readonly string[];
-  /** Directory of the plugin entry (`import.meta.dirname`). */
-  readonly root: string;
-  /** Private files imported by the plugin (`assets/`). */
-  readonly assetsDir: string;
-  /** Files served over HTTP (`public_assets/`). */
-  readonly publicAssetsDir: string;
-  routes?: (
-    ctx: PluginRouteContext,
-  ) => readonly PluginRoute[] | Promise<readonly PluginRoute[]>;
-  build?: (ctx: PluginBuildContext) => void | Promise<void>;
-};
-
-export type CreatePluginOptions = {
-  name: string;
-  description: string;
-  version: string;
-  keywords: readonly string[];
-  /**
-   * Directory that contains `assets/` and `public_assets/`.
-   * Pass `import.meta.dirname` when those folders sit next to the plugin entry.
-   * Third-party packages may pass their package root instead.
-   */
-  root: string;
-  routes?: (
-    ctx: PluginRouteContext,
-  ) => readonly PluginRoute[] | Promise<readonly PluginRoute[]>;
-  build?: (ctx: PluginBuildContext) => void | Promise<void>;
-};
+import type { Stackbox as SB } from "./types.js";
 
 export class PluginError extends Error {
   constructor(message: string) {
@@ -139,7 +85,7 @@ function resolvePluginSubdir(root: string, folder: string): string {
   return sourcePluginSubdir(root, folder) ?? local;
 }
 
-export function createPlugin(options: CreatePluginOptions): Plugin {
+export function createPlugin(options: SB.CreatePluginOptions): SB.Plugin {
   if (!options || typeof options !== "object" || Array.isArray(options)) {
     throw new PluginError(
       "createPlugin(): name, description, version, keywords, and root are required",
@@ -168,26 +114,26 @@ export function createPlugin(options: CreatePluginOptions): Plugin {
   };
 }
 
-export function isPlugin(value: unknown): value is Plugin {
+export function isPlugin(value: unknown): value is SB.Plugin {
   return (
     typeof value === "object" &&
     value !== null &&
-    (value as Plugin).__kind === "plugin" &&
-    typeof (value as Plugin).name === "string" &&
-    (value as Plugin).name.length > 0 &&
-    typeof (value as Plugin).description === "string" &&
-    (value as Plugin).description.length > 0 &&
-    typeof (value as Plugin).version === "string" &&
-    (value as Plugin).version.length > 0 &&
-    Array.isArray((value as Plugin).keywords) &&
-    (value as Plugin).keywords.length > 0 &&
-    typeof (value as Plugin).root === "string" &&
-    typeof (value as Plugin).assetsDir === "string" &&
-    typeof (value as Plugin).publicAssetsDir === "string"
+    (value as SB.Plugin).__kind === "plugin" &&
+    typeof (value as SB.Plugin).name === "string" &&
+    (value as SB.Plugin).name.length > 0 &&
+    typeof (value as SB.Plugin).description === "string" &&
+    (value as SB.Plugin).description.length > 0 &&
+    typeof (value as SB.Plugin).version === "string" &&
+    (value as SB.Plugin).version.length > 0 &&
+    Array.isArray((value as SB.Plugin).keywords) &&
+    (value as SB.Plugin).keywords.length > 0 &&
+    typeof (value as SB.Plugin).root === "string" &&
+    typeof (value as SB.Plugin).assetsDir === "string" &&
+    typeof (value as SB.Plugin).publicAssetsDir === "string"
   );
 }
 
-export function assertPlugin(value: unknown, label = "plugin"): Plugin {
+export function assertPlugin(value: unknown, label = "plugin"): SB.Plugin {
   if (!isPlugin(value)) {
     throw new PluginError(
       `${label}: each plugin must be created with createPlugin() and include name, description, version, and keywords`,
@@ -211,7 +157,7 @@ function copyDirIfPresent(source: string, dest: string): void {
  * Copy each registered plugin's private `assets/` next to its compiled entry
  * (`{plugin.root}/assets`). Used by this package's build — not a site public copy.
  */
-export function copyPluginPrivateAssets(plugins: readonly Plugin[]): void {
+export function copyPluginPrivateAssets(plugins: readonly SB.Plugin[]): void {
   for (const plugin of plugins) {
     assertPlugin(plugin, "copyPluginPrivateAssets()");
     copyDirIfPresent(plugin.assetsDir, join(plugin.root, "assets"));
@@ -223,7 +169,7 @@ export function copyPluginPrivateAssets(plugins: readonly Plugin[]): void {
  * `{publicDir}/_sb/plugins/{name}/`. Only plugins you pass in are copied.
  */
 export function copyRegisteredPluginAssets(
-  plugins: readonly Plugin[],
+  plugins: readonly SB.Plugin[],
   publicDir: string,
 ): void {
   const destRoot = requireNonEmptyString(publicDir, "publicDir");
@@ -248,8 +194,8 @@ export function copyRegisteredPluginAssets(
  * Run each registered plugin's `build` hook (e.g. write sitemap.xml).
  */
 export async function runRegisteredPluginBuilds(
-  plugins: readonly Plugin[],
-  ctx: PluginBuildContext,
+  plugins: readonly SB.Plugin[],
+  ctx: SB.PluginBuildContext,
 ): Promise<void> {
   for (const plugin of plugins) {
     assertPlugin(plugin, "runRegisteredPluginBuilds()");

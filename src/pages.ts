@@ -1,89 +1,33 @@
-import type { CacheConfig } from "./cache.js";
-import type { SiteHooks } from "./hooks.js";
-import type { SiteConfig } from "./site.js";
-import type { Stackbox } from "./stackbox/context.js";
+import type { Stackbox as SB } from "./types.js";
 import {
   isTemplate,
-  type SlotDefinition,
-  type SlotNamesFrom,
-  type RequiredSlotNamesFrom,
-  type TemplateDescriptor,
 } from "./templates.js";
 import {
-  type DefaultSlotContent,
-  type PageSlotsInput,
   slotHasContent,
   SlotContentValidationError,
   validateSlotContentItem,
 } from "./slot-content.js";
 
-export type PageMeta = {
-  description?: string;
-  robots?: string;
-  canonical?: string;
-  ogTitle?: string;
-  ogDescription?: string;
-  ogImage?: string;
-  twitterCard?: string;
-};
-
-export type RenderContext = {
-  siteConfig: SiteConfig;
-  ctx?: Stackbox.Context;
-  page?: SitePage;
-  hooks?: SiteHooks;
-};
-
-export type Page<
-  Slots extends string = string,
-  RequiredSlots extends Slots = never,
-  Definitions extends readonly SlotDefinition[] = readonly SlotDefinition[],
-> = {
-  readonly __kind: "page";
-  path: string;
-  template: TemplateDescriptor<Slots, RequiredSlots, Definitions>;
-  title: string;
-  meta?: PageMeta;
-  cache?: CacheConfig;
-  source?: string;
-  slots: PageSlotsInput<Definitions, RequiredSlots>;
-};
-
-/** Widened page type for site builds mixing templates and required slots. */
-export type SitePage = {
-  readonly __kind: "page";
-  path: string;
-  template: TemplateDescriptor<string, string>;
-  title: string;
-  meta?: PageMeta;
-  cache?: CacheConfig;
-  source?: string;
-  slots: Partial<Record<string, DefaultSlotContent[]>>;
-};
-
-/** Page fields passed to template render (slot content lives on `slots`). */
-export type PageRenderView = Omit<Page, "template" | "slots">;
-
 export function toPageRenderView({
   template: _template,
   slots: _slots,
   ...view
-}: SitePage): PageRenderView {
+}: SB.SitePage): SB.PageRenderView {
   return view;
 }
 
-export function isPage(value: unknown): value is Page {
+export function isPage(value: unknown): value is SB.Page {
   return (
     typeof value === "object" &&
     value !== null &&
-    (value as Page).__kind === "page" &&
-    typeof (value as Page).path === "string" &&
-    (value as Page).path.length > 0 &&
-    isTemplate((value as Page).template) &&
-    typeof (value as Page).title === "string" &&
-    (value as Page).title.length > 0 &&
-    typeof (value as Page).slots === "object" &&
-    (value as Page).slots !== null
+    (value as SB.Page).__kind === "page" &&
+    typeof (value as SB.Page).path === "string" &&
+    (value as SB.Page).path.length > 0 &&
+    isTemplate((value as SB.Page).template) &&
+    typeof (value as SB.Page).title === "string" &&
+    (value as SB.Page).title.length > 0 &&
+    typeof (value as SB.Page).slots === "object" &&
+    (value as SB.Page).slots !== null
   );
 }
 
@@ -108,8 +52,8 @@ function validatePagePath(path: string): void {
 }
 
 function validatePageSlotContent(
-  template: TemplateDescriptor<string, string>,
-  slots: Partial<Record<string, DefaultSlotContent[]>>,
+  template: SB.TemplateDescriptor<string, string>,
+  slots: Partial<Record<string, SB.DefaultSlotContent[]>>,
 ): void {
   const templateSlotNames = new Set(Object.keys(template.slots));
 
@@ -140,42 +84,42 @@ function validatePageSlotContent(
 }
 
 export function createPage(
-  template: TemplateDescriptor<string, string>,
+  template: SB.TemplateDescriptor<string, string>,
   def: {
     path: string;
     title: string;
-    meta?: PageMeta;
-    cache?: CacheConfig;
+    meta?: SB.PageMeta;
+    cache?: SB.CacheConfig;
     source?: string;
-    slots: Partial<Record<string, DefaultSlotContent[]>>;
+    slots: Partial<Record<string, SB.DefaultSlotContent[]>>;
   },
-): SitePage;
-export function createPage<const S extends readonly SlotDefinition[]>(
-  template: TemplateDescriptor<
-    SlotNamesFrom<S>,
-    RequiredSlotNamesFrom<S>,
+): SB.SitePage;
+export function createPage<const S extends readonly SB.SlotDefinition[]>(
+  template: SB.TemplateDescriptor<
+    SB.SlotNamesFrom<S>,
+    SB.RequiredSlotNamesFrom<S>,
     S
   >,
   def: {
     path: string;
     title: string;
-    meta?: PageMeta;
-    cache?: CacheConfig;
+    meta?: SB.PageMeta;
+    cache?: SB.CacheConfig;
     source?: string;
-    slots: PageSlotsInput<S, RequiredSlotNamesFrom<S>>;
+    slots: SB.PageSlotsInput<S, SB.RequiredSlotNamesFrom<S>>;
   },
-): Page<SlotNamesFrom<S>, RequiredSlotNamesFrom<S>, S>;
+): SB.Page<SB.SlotNamesFrom<S>, SB.RequiredSlotNamesFrom<S>, S>;
 export function createPage(
-  template: TemplateDescriptor<string, string>,
+  template: SB.TemplateDescriptor<string, string>,
   def: {
     path: string;
     title: string;
-    meta?: PageMeta;
-    cache?: CacheConfig;
+    meta?: SB.PageMeta;
+    cache?: SB.CacheConfig;
     source?: string;
-    slots: Partial<Record<string, DefaultSlotContent[]>>;
+    slots: Partial<Record<string, SB.DefaultSlotContent[]>>;
   },
-): SitePage {
+): SB.SitePage {
   if (!isTemplate(template)) {
     throw new PageValidationError(
       "template must be created with createTemplate()",

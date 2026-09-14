@@ -1,6 +1,6 @@
 import { fileURLToPath } from "node:url";
 import { isBlock } from "../src/blocks.js";
-import type { SiteHooks } from "../src/hooks.js";
+import type { Stackbox as SB } from "../src/types.js";
 
 export function isEditRequest(request: Request): boolean {
   const edit = new URL(request.url).searchParams.get("edit");
@@ -33,7 +33,7 @@ sb-edit:hover {
 }
 </style>`;
 
-export function createEditHooks(): SiteHooks {
+export function createEditHooks(): SB.SiteHooks {
   return {
     shouldCache(request) {
       return !isEditRequest(request);

@@ -1,87 +1,29 @@
 import { render, type HSHtml } from "@hyperspan/html";
 import type { z } from "zod";
-import { isSiteConfig, type SiteConfig } from "./site.js";
-import type { PageRenderView } from "./pages.js";
+import { isSiteConfig } from "./site.js";
 import {
   buildStubSlots,
   slotSentinel,
-  type TemplateSlotsFrom,
 } from "./slot-handle.js";
+import type { Stackbox as SB } from "./types.js";
 
-export type SlotOptions = {
-  required?: boolean;
-  primary?: true;
-  schema?: z.ZodTypeAny;
-};
-
-export type SlotDefinition = {
-  name: string;
-  options?: SlotOptions;
-};
-
-export type SlotMeta = {
-  isDefault: boolean;
-  required: boolean;
-  schema?: z.ZodTypeAny;
-};
-
-export type TemplateRenderContext<
-  S extends readonly SlotDefinition[] = readonly SlotDefinition[],
-> = {
-  head?: HSHtml;
-  siteConfig: SiteConfig;
-  page: PageRenderView;
-  slots: TemplateSlotsFrom<S>;
-};
-
-/** Widened render signature stored on descriptors at runtime. */
-export type TemplateRenderFn = (ctx: {
-  head?: HSHtml;
-  siteConfig: SiteConfig;
-  page: PageRenderView;
-  slots: Record<string, import("./slot-handle.js").Slot>;
-}) => HSHtml;
-
-export type TemplateDescriptor<
-  Slots extends string = string,
-  RequiredSlots extends Slots = never,
-  Definitions extends readonly SlotDefinition[] = readonly SlotDefinition[],
-> = {
-  readonly __kind: "template";
-  siteConfig: SiteConfig;
-  formatPageTitle: (title: string) => string;
-  render: TemplateRenderFn;
-  slots: Record<Slots, SlotMeta>;
-  requiredSlots: readonly RequiredSlots[];
-  readonly __definitions?: Definitions;
-};
-
-export type SlotNamesFrom<S extends readonly SlotDefinition[]> =
-  S[number]["name"];
-
-export type RequiredSlotNamesFrom<S extends readonly SlotDefinition[]> =
-  Extract<
-    S[number],
-    { options: { required: true } } | { options: { primary: true } }
-  >["name"];
-
-export function isTemplate(value: unknown): value is TemplateDescriptor {
+export function isTemplate(value: unknown): value is SB.TemplateDescriptor {
   return (
     typeof value === "object" &&
     value !== null &&
-    (value as TemplateDescriptor).__kind === "template" &&
-    isSiteConfig((value as TemplateDescriptor).siteConfig) &&
-    typeof (value as TemplateDescriptor).formatPageTitle === "function" &&
-    typeof (value as TemplateDescriptor).render === "function" &&
-    typeof (value as TemplateDescriptor).slots === "object" &&
-    (value as TemplateDescriptor).slots !== null &&
-    Array.isArray((value as TemplateDescriptor).requiredSlots)
+    (value as SB.TemplateDescriptor).__kind === "template" &&
+    isSiteConfig((value as SB.TemplateDescriptor).siteConfig) &&
+    typeof (value as SB.TemplateDescriptor).formatPageTitle === "function" &&
+    typeof (value as SB.TemplateDescriptor).render === "function" &&
+    typeof (value as SB.TemplateDescriptor).slots === "object" &&
+    (value as SB.TemplateDescriptor).slots !== null &&
+    Array.isArray((value as SB.TemplateDescriptor).requiredSlots)
   );
 }
 
 function defaultFormatPageTitle(
   pageTitle: string,
-  siteConfig: SiteConfig,
+  siteConfig: SB.SiteConfig,
 ): string {
   const suffix = siteConfig.config.titleSuffix;
   return typeof suffix === "string" ? pageTitle + suffix : pageTitle;
@@ -102,7 +44,7 @@ export class TemplateBuildError extends Error {
 }
 
 function validateSlotDefinitions(
-  definitions: readonly SlotDefinition[],
+  definitions: readonly SB.SlotDefinition[],
 ): SlotRegistryEntry[] {
   if (definitions.length === 0) {
     throw new TemplateBuildError("template must define at least one slot");
@@ -157,22 +99,22 @@ function validateRenderOutput(
   }
 }
 
-const stubPage: PageRenderView = {
+const stubPage: SB.PageRenderView = {
   __kind: "page",
   path: "/",
   title: "Template validation",
 };
 
-export function createTemplate<const S extends readonly SlotDefinition[]>(
+export function createTemplate<const S extends readonly SB.SlotDefinition[]>(
   def: {
-    siteConfig: SiteConfig;
+    siteConfig: SB.SiteConfig;
     slots: S;
-    title?: (pageTitle: string, siteConfig: SiteConfig) => string;
-    render: (ctx: TemplateRenderContext<S>) => HSHtml;
+    title?: (pageTitle: string, siteConfig: SB.SiteConfig) => string;
+    render: (ctx: SB.TemplateRenderContext<S>) => HSHtml;
   },
-): TemplateDescriptor<
-  SlotNamesFrom<S>,
-  RequiredSlotNamesFrom<S>,
+): SB.TemplateDescriptor<
+  SB.SlotNamesFrom<S>,
+  SB.RequiredSlotNamesFrom<S>,
   S
 > {
   if (!isSiteConfig(def.siteConfig)) {
@@ -202,17 +144,17 @@ export function createTemplate<const S extends readonly SlotDefinition[]>(
     entries.map((entry) => entry.name),
   );
 
-  const slots = {} as Record<SlotNamesFrom<S>, SlotMeta>;
-  const requiredSlots: RequiredSlotNamesFrom<S>[] = [];
+  const slots = {} as Record<SB.SlotNamesFrom<S>, SB.SlotMeta>;
+  const requiredSlots: SB.RequiredSlotNamesFrom<S>[] = [];
 
   for (const entry of entries) {
-    slots[entry.name as SlotNamesFrom<S>] = {
+    slots[entry.name as SB.SlotNamesFrom<S>] = {
       isDefault: entry.isDefault,
       required: entry.required,
       schema: entry.schema,
     };
     if (entry.required) {
-      requiredSlots.push(entry.name as RequiredSlotNamesFrom<S>);
+      requiredSlots.push(entry.name as SB.RequiredSlotNamesFrom<S>);
     }
   }
 
@@ -220,11 +162,9 @@ export function createTemplate<const S extends readonly SlotDefinition[]>(
     __kind: "template" as const,
     siteConfig: def.siteConfig,
     formatPageTitle,
-    render: def.render as TemplateRenderFn,
+    render: def.render as SB.TemplateRenderFn,
     slots,
     requiredSlots,
     __definitions: def.slots,
   };
 }
-
-export type { Slot, TemplateSlotsFrom } from "./slot-handle.js";

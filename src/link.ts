@@ -1,6 +1,6 @@
 import { existsSync, readFileSync } from "node:fs";
 import { join, normalize, sep } from "node:path";
-import type { Plugin } from "./plugin.js";
+import type { Stackbox as SB } from "./types.js";
 import { normalizePathname } from "./routing.js";
 
 export const PLUGIN_PUBLIC_PREFIX = "/_sb/plugins";
@@ -44,14 +44,9 @@ export function pluginAssetPath(pluginName: string, relativePath: string): strin
   return `${PLUGIN_PUBLIC_PREFIX}/${pluginName}/${segments.join("/")}`;
 }
 
-export type PluginAssetRequest = {
-  plugin: string;
-  relativePath: string;
-};
-
 export function parsePluginAssetRequest(
   pathname: string,
-): PluginAssetRequest | null {
+): SB.PluginAssetRequest | null {
   const normalized = normalizePathname(pathname);
   const prefix = `${PLUGIN_PUBLIC_PREFIX}/`;
   if (!normalized.startsWith(prefix)) {
@@ -114,7 +109,7 @@ function resolveFileInDir(root: string, relativePath: string): string | null {
 export function servePluginAsset(
   pathname: string,
   method: string,
-  plugins: readonly Plugin[] = [],
+  plugins: readonly SB.Plugin[] = [],
 ): globalThis.Response | null {
   const request = parsePluginAssetRequest(pathname);
   if (!request) {

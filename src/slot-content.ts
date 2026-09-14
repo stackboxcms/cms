@@ -1,41 +1,21 @@
 import type { z } from "zod";
 import { z as zod } from "zod";
-import { isBlock, type Block } from "./blocks.js";
-import type { SlotDefinition, SlotNamesFrom } from "./templates.js";
-
-export type DefaultSlotContent = Block | string;
+import { isBlock } from "./blocks.js";
+import type { Stackbox as SB } from "./types.js";
 
 /** Accepts any block or HTML string (default slot content). */
-export const anySlotContentSchema: z.ZodType<DefaultSlotContent> = zod.union([
+export const anySlotContentSchema: z.ZodType<SB.DefaultSlotContent> = zod.union([
   zod.string(),
-  zod.custom<Block>((value) => isBlock(value)),
+  zod.custom<SB.Block>((value) => isBlock(value)),
 ]);
 
 /** Accepts only HTML strings. */
 export const stringSlotContentSchema = zod.string();
 
 /** Accepts only CMS blocks. */
-export const blockSlotContentSchema: z.ZodType<Block> = zod.custom<Block>(
+export const blockSlotContentSchema: z.ZodType<SB.Block> = zod.custom<SB.Block>(
   (value) => isBlock(value),
 );
-
-export type SlotContentFromDefinition<D extends SlotDefinition> =
-  D extends { options: { schema: infer Schema extends z.ZodTypeAny } }
-    ? z.input<Schema>
-    : DefaultSlotContent;
-
-export type PageSlotsInput<
-  S extends readonly SlotDefinition[],
-  Required extends string,
-> = {
-  [K in Required]: SlotContentFromDefinition<
-    Extract<S[number], { name: K }>
-  >[];
-} & Partial<{
-  [K in Exclude<SlotNamesFrom<S>, Required>]: SlotContentFromDefinition<
-    Extract<S[number], { name: K }>
-  >[];
-}>;
 
 export function validateSlotContentItem(
   slotName: string,
