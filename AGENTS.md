@@ -125,6 +125,9 @@ Optional hooks on `createPlugin()`:
 
 - **`routes({ site })`** — site-level paths served by `fetch()` before the GET/HEAD gate, plugin assets, and pages (e.g. `/sitemap.xml`). The route handler decides which HTTP methods are allowed. Must return synchronously. Paths must not collide with pages or other plugin routes.
 - **`build({ site, outDir, publicDir })`** — called by `stackbox-cms build` after copying registered `public_assets/`. Write generated files into `publicDir` (or elsewhere under `outDir`).
+- **`hooks({ site })`** — return `SiteHooks` to register cache/render/response behavior when the plugin is added to `createSite({ plugins })`. Must return synchronously. `{ site }` exposes `site.siteConfig.config`, `site.pages`, and `site.plugins`.
+
+Plugin hooks merge with site-level `hooks` on `createSite`: `renderSlotItem`, `afterRender`, and `beforeResponse` run in plugin registration order, then site hooks last; `shouldCache` uses AND semantics (every hook must return `true` to cache).
 
 ## Plugin catalog
 

@@ -111,6 +111,7 @@ export function createPlugin(options: SB.CreatePluginOptions): SB.Plugin {
     publicAssetsDir: resolvePluginSubdir(root, "public_assets"),
     ...(options.routes ? { routes: options.routes } : {}),
     ...(options.build ? { build: options.build } : {}),
+    ...(options.hooks ? { hooks: options.hooks } : {}),
   };
 }
 

@@ -15,6 +15,7 @@ import { servePluginAsset } from "./link.js";
 import {
   assertPlugin,
 } from "./plugin.js";
+import { mergeSiteHooks } from "./merge-hooks.js";
 import { normalizePathname } from "./routing.js";
 import { createContext } from "./stackbox/context.js";
 import type { Stackbox as SB } from "./types.js";
@@ -128,6 +129,32 @@ function collectPluginRoutes(
   return routes;
 }
 
+function collectPluginHooks(
+  plugins: readonly SB.Plugin[],
+  site: SB.Site,
+): SB.SiteHooks[] {
+  const collected: SB.SiteHooks[] = [];
+
+  for (const plugin of plugins) {
+    if (!plugin.hooks) {
+      continue;
+    }
+
+    const declared = plugin.hooks({ site });
+    if (declared instanceof Promise) {
+      throw new SiteError(
+        `createSite(siteConfig, options): plugin "${plugin.name}" hooks must return synchronously`,
+      );
+    }
+
+    if (declared) {
+      collected.push(declared);
+    }
+  }
+
+  return collected;
+}
+
 export function createSite<T extends Record<string, unknown>>(
   siteConfig: SB.SiteConfig<T>,
   options: {
@@ -192,7 +219,10 @@ export function createSite<T extends Record<string, unknown>>(
 
   const pluginRoutes = collectPluginRoutes(plugins, siteShell, pagePaths);
   const cacheAdapter = options.cacheAdapter ?? createMemoryCache();
-  const hooks = options.hooks;
+  const hooks = mergeSiteHooks(
+    ...collectPluginHooks(plugins, siteShell),
+    options.hooks,
+  );
   const inFlightRenders = new Map<string, Promise<string>>();
 
   async function applyBeforeResponse(

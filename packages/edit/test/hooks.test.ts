@@ -1,78 +1,73 @@
 import assert from "node:assert/strict";
 import { describe, it } from "node:test";
 import { html } from "@hyperspan/html";
-import { createBlock } from "../src/blocks.js";
-import { createPage } from "../src/pages.js";
-import { createSite, createSiteConfig } from "../src/site.js";
-import { createTemplate } from "../src/templates.js";
-import { createEditHooks, normalizeSource } from "./edit-hooks.js";
+import { createBlock, createPage, createSite, createSiteConfig, createTemplate } from "@stackbox/cms";
+import { normalizeSource } from "../src/hooks.js";
+import { editPlugin } from "../src/plugin.js";
 
 function createEditFixture() {
   const siteConfig = createSiteConfig({ name: "Edit Test" });
   const template = createTemplate({
-    siteConfig,
-    slots: [{ name: "content", options: { required: true, primary: true } }],
     render({ slots }: { slots: { content: { render: () => unknown } } }): ReturnType<typeof html> {
       return html`<html><head></head><body>${slots.content.render()}</body></html>`;
     },
+    siteConfig,
+    slots: [{ name: "content", options: { primary: true, required: true } }],
   });
 
   let blockRenders = 0;
   const blockFactory = createBlock({
     name: "sample-block",
-    source: "file:///pages/blocks/sample.ts",
     render() {
       blockRenders += 1;
       return html`<p>block-${blockRenders}</p>`;
     },
+    source: "file:///pages/blocks/sample.ts",
   });
 
   const page = createPage(template, {
-    path: "/",
-    title: "Home",
-    source: "file:///pages/home.ts",
     cache: { max: 60_000 },
+    path: "/",
     slots: {
       content: [blockFactory(), "<p>welcome</p>"],
     },
+    source: "file:///pages/home.ts",
+    title: "Home",
   });
 
   const site = createSite(siteConfig, {
     pages: [page],
-    hooks: createEditHooks(),
+    plugins: [editPlugin],
   });
 
-  return { site, getBlockRenders: () => blockRenders };
+  return { getBlockRenders: () => blockRenders, site };
 }
 
-describe("edit overlay hooks consumer", () => {
+describe("edit hooks", () => {
   it("leaves normal requests unmarked and cacheable", async () => {
-    const { site, getBlockRenders } = createEditFixture();
+    const { getBlockRenders, site } = createEditFixture();
 
     await site.fetch(new Request("https://example.com/"));
     await site.fetch(new Request("https://example.com/"));
 
-    const res = await site.fetch(new Request("https://example.com/"));
-    const body = await res.text();
+    const body = await (await site.fetch(new Request("https://example.com/"))).text();
 
     assert.doesNotMatch(body, /<sb-edit/);
     assert.doesNotMatch(body, /sb-edit-page/);
     assert.strictEqual(getBlockRenders(), 1);
   });
 
-  it("wraps content and injects page metadata when ?sbedit=1", async () => {
+  it("wraps content and injects the behavior script when ?sbedit=1", async () => {
     const { site } = createEditFixture();
-
-    const res = await site.fetch(new Request("https://example.com/?sbedit=1"));
-    const body = await res.text();
+    const body = await (await site.fetch(new Request("https://example.com/?sbedit=1"))).text();
 
     assert.match(body, /<sb-edit slot="content" index="0" kind="block" name="sample-block"/);
     assert.match(body, /<sb-edit slot="content" index="1" kind="html"/);
     assert.match(body, /id="sb-edit-page"/);
     assert.match(body, /"path":"\/"/);
     assert.match(body, /"title":"Home"/);
-    assert.match(body, /sb-edit:hover/);
-    assert.match(body, /outline-color: #3b82f6/);
+    assert.match(body, /sb-edit\{display:contents\}/);
+    assert.match(body, /src="\/_sb\/plugins\/sb-edit\/edit\.js"/);
   });
 
   it("does not mark when ?sbedit=0", async () => {
@@ -85,18 +80,12 @@ describe("edit overlay hooks consumer", () => {
     const { site } = createEditFixture();
     const body = await (await site.fetch(new Request("https://example.com/?sbedit=1"))).text();
 
-    assert.match(
-      body,
-      new RegExp(`source="${normalizeSource("file:///pages/blocks/sample.ts")}"`),
-    );
-    assert.match(
-      body,
-      new RegExp(`page-source="${normalizeSource("file:///pages/home.ts")}"`),
-    );
+    assert.match(body, new RegExp(`source="${normalizeSource("file:///pages/blocks/sample.ts")}"`));
+    assert.match(body, new RegExp(`page-source="${normalizeSource("file:///pages/home.ts")}"`));
   });
 
   it("sets Cache-Control no-store and re-renders on each edit request", async () => {
-    const { site, getBlockRenders } = createEditFixture();
+    const { getBlockRenders, site } = createEditFixture();
 
     const first = await site.fetch(new Request("https://example.com/?sbedit=1"));
     assert.strictEqual(first.headers.get("Cache-Control"), "no-store");

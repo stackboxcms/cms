@@ -263,9 +263,12 @@ export namespace Stackbox {
     ) => globalThis.Response | Promise<globalThis.Response>;
   };
 
-  export type PluginRouteContext = {
+  export type PluginContext = {
     site: Site;
   };
+
+  /** @deprecated Use PluginContext */
+  export type PluginRouteContext = PluginContext;
 
   export type PluginBuildContext = {
     site: Site;
@@ -283,9 +286,10 @@ export namespace Stackbox {
     readonly assetsDir: string;
     readonly publicAssetsDir: string;
     routes?: (
-      ctx: PluginRouteContext,
+      ctx: PluginContext,
     ) => readonly PluginRoute[] | Promise<readonly PluginRoute[]>;
     build?: (ctx: PluginBuildContext) => void | Promise<void>;
+    hooks?: (ctx: PluginContext) => SiteHooks | void | Promise<SiteHooks>;
   };
 
   export type CreatePluginOptions = {
@@ -295,9 +299,10 @@ export namespace Stackbox {
     keywords: readonly string[];
     root: string;
     routes?: (
-      ctx: PluginRouteContext,
+      ctx: PluginContext,
     ) => readonly PluginRoute[] | Promise<readonly PluginRoute[]>;
     build?: (ctx: PluginBuildContext) => void | Promise<void>;
+    hooks?: (ctx: PluginContext) => SiteHooks | void | Promise<SiteHooks>;
   };
 
   export type Site<

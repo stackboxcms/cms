@@ -1,6 +1,7 @@
 import { fileURLToPath } from "node:url";
-import { isBlock } from "../src/blocks.js";
-import type { Stackbox as SB } from "../src/types.js";
+import { isBlock } from "@stackbox/cms";
+import type { Stackbox as SB } from "@stackbox/cms";
+import { EDIT_SCRIPT_PATH } from "./protocol.js";
 
 export function isEditRequest(request: Request): boolean {
   return new URL(request.url).searchParams.get("sbedit") === "1";
@@ -14,23 +15,10 @@ export function normalizeSource(source: string): string {
 }
 
 function escapeAttr(value: string): string {
-  return value
-    .replace(/&/g, "&amp;")
-    .replace(/"/g, "&quot;")
-    .replace(/</g, "&lt;");
+  return value.replace(/&/g, "&amp;").replace(/"/g, "&quot;").replace(/</g, "&lt;");
 }
 
-const EDIT_STYLE = `<style id="sb-edit-style">
-sb-edit {
-  display: block;
-  outline: 2px solid transparent;
-  outline-offset: 2px;
-  cursor: pointer;
-}
-sb-edit:hover {
-  outline-color: #3b82f6;
-}
-</style>`;
+const EDIT_STYLE = `<style id="sb-edit-style">sb-edit{display:contents}.sb-edit-hover{outline:2px solid #3b82f6;outline-offset:2px}</style>`;
 
 export function createEditHooks(): SB.SiteHooks {
   return {
@@ -58,9 +46,7 @@ export function createEditHooks(): SB.SiteHooks {
       }
 
       if (info.page.source) {
-        attrs.push(
-          `page-source="${escapeAttr(normalizeSource(info.page.source))}"`,
-        );
+        attrs.push(`page-source="${escapeAttr(normalizeSource(info.page.source))}"`);
       }
 
       return `<sb-edit ${attrs.join(" ")}>${html}</sb-edit>`;
@@ -75,18 +61,16 @@ export function createEditHooks(): SB.SiteHooks {
       const pageJson = JSON.stringify({
         path: info.page.path,
         title: info.page.title,
-        ...(info.page.source
-          ? { source: normalizeSource(info.page.source) }
-          : {}),
-      });
+        ...(info.page.source ? { source: normalizeSource(info.page.source) } : {}),
+      }).replace(/</g, "\\u003c");
 
-      const script = `<script type="application/json" id="sb-edit-page">${pageJson}</script>`;
+      const tail = `${EDIT_STYLE}<script type="application/json" id="sb-edit-page">${pageJson}</script><script src="${EDIT_SCRIPT_PATH}"></script>`;
 
-      if (html.includes("</head>")) {
-        return html.replace("</head>", `${EDIT_STYLE}${script}</head>`);
+      if (html.includes("</body>")) {
+        return html.replace("</body>", `${tail}</body>`);
       }
 
-      return `${EDIT_STYLE}${script}${html}`;
+      return `${html}${tail}`;
     },
 
     beforeResponse(response, info) {
@@ -97,9 +81,9 @@ export function createEditHooks(): SB.SiteHooks {
       const headers = new Headers(response.headers);
       headers.set("Cache-Control", "no-store");
       return new Response(response.body, {
+        headers,
         status: response.status,
         statusText: response.statusText,
-        headers,
       });
     },
   };

@@ -103,6 +103,40 @@ export default createSite(siteConfig, {
 
 Pages and blocks may optionally set `source` (for example `import.meta.url`) so hooks can point editors or agents at the defining file.
 
+Plugins can register hooks too — pass the plugin to `createSite({ plugins })` and its hooks merge with any site-level hooks:
+
+```ts
+createPlugin({
+  name: "my-plugin",
+  // ...metadata...
+  hooks({ site }) {
+    const { url } = site.siteConfig.config;
+    return {
+      afterRender(html) {
+        return html;
+      },
+    };
+  },
+});
+```
+
+Plugin hooks run in registration order; site `hooks` run last. `shouldCache` uses AND semantics across all hooks.
+
+### Edit plugin
+
+Enable in-iframe editing with a single plugin registration:
+
+```ts
+import editPlugin from "@stackbox/edit";
+
+export default createSite(siteConfig, {
+  pages: [homePage],
+  plugins: [editPlugin],
+});
+```
+
+Visit any page with `?sbedit=1` to activate edit mode.
+
 ## Types
 
 Core types are exported as a single namespace:

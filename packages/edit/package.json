@@ -1,0 +1,44 @@
+{
+  "name": "@stackbox/edit",
+  "version": "0.1.0",
+  "description": "In-iframe edit behavior for Stackbox sites",
+  "type": "module",
+  "license": "BSD-3-Clause",
+  "publishConfig": {
+    "access": "public"
+  },
+  "homepage": "https://github.com/stackboxcms/cms",
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/stackboxcms/cms.git",
+    "directory": "packages/edit"
+  },
+  "files": [
+    "dist"
+  ],
+  "exports": {
+    ".": {
+      "types": "./dist/index.d.ts",
+      "import": "./dist/index.js"
+    }
+  },
+  "scripts": {
+    "build": "tsc -p tsconfig.json && tsc -p tsconfig.client.json && node scripts/build-client.mjs",
+    "test": "npm run build && node --import tsx --test test/*.test.ts",
+    "typecheck": "tsc -p tsconfig.json --noEmit && tsc -p tsconfig.client.json",
+    "prepack": "npm run build"
+  },
+  "peerDependencies": {
+    "@stackbox/cms": "^0.1.0"
+  },
+  "devDependencies": {
+    "@stackbox/cms": "file:../..",
+    "@types/node": "^22.15.21",
+    "esbuild": "^0.25.9",
+    "tsx": "^4.19.4",
+    "typescript": "^5.8.3"
+  },
+  "engines": {
+    "node": ">=20"
+  }
+}
