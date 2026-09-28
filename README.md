@@ -127,7 +127,7 @@ Plugin hooks run in registration order; site `hooks` run last. `shouldCache` use
 Enable in-iframe editing with a single plugin registration:
 
 ```ts
-import editPlugin from "@stackbox/edit";
+import editPlugin from "@stackbox/edit-mode-plugin";
 
 export default createSite(siteConfig, {
   pages: [homePage],

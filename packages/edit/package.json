@@ -1,5 +1,5 @@
 {
-  "name": "@stackbox/edit",
+  "name": "@stackbox/edit-mode-plugin",
   "version": "0.1.0",
   "description": "In-iframe edit behavior for Stackbox sites",
   "type": "module",
