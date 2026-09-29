@@ -1,5 +1,5 @@
 import { hrefWithEdit } from "../edit-url.js";
-import { EDIT_PAGE_SOURCE, EDITOR_APP_SOURCE } from "../protocol.js";
+import { EDIT_PAGE_SOURCE, EDITOR_APP_SOURCE, EDIT_PLUGIN_VERSION } from "../protocol.js";
 import type { EditBlockInfo, EditElementContext, EditMode, EditPageInfo } from "../protocol.js";
 
 const TEXT_TAGS = new Set([
@@ -89,6 +89,10 @@ function selectorFor(element: Element): string {
   const id = crypto.randomUUID();
   element.setAttribute("data-sb-edit-target", id);
   return `[data-sb-edit-target="${id}"]`;
+}
+
+function helloPayload(): { type: "hello"; version: string } {
+  return { type: "hello", version: EDIT_PLUGIN_VERSION };
 }
 
 function postToApp(message: Record<string, unknown>): void {
@@ -219,6 +223,10 @@ function onMessage(event: MessageEvent): void {
   if (record.source !== EDITOR_APP_SOURCE) {
     return;
   }
+  if (record.type === "hello") {
+    postToApp(helloPayload());
+    return;
+  }
   if (record.type === "mode" && (record.mode === "off" || record.mode === "elements" || record.mode === "chat")) {
     mode = record.mode;
     if (mode !== "elements") {
@@ -319,7 +327,8 @@ function boot(): void {
   document.addEventListener("click", onClick, true);
   document.addEventListener("keydown", onKeyDown);
   document.addEventListener("focusout", onBlur);
-  postToApp({ page: pageInfo(), type: "ready" });
+  postToApp({ page: pageInfo(), type: "ready", version: EDIT_PLUGIN_VERSION });
+  postToApp(helloPayload());
 }
 
 boot();

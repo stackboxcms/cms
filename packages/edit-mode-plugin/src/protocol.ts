@@ -1,6 +1,7 @@
 export const EDIT_PAGE_SOURCE = "stackbox-edit";
 export const EDITOR_APP_SOURCE = "stackbox-editor";
 export const EDIT_SCRIPT_PATH = "/_sb/plugins/sb-edit/edit.js";
+export const EDIT_PLUGIN_VERSION = "0.1.2";
 
 export type EditMode = "off" | "elements" | "chat";
 
@@ -25,7 +26,17 @@ export type EditElementContext = {
 };
 
 export type PageEditMessage =
-  | { source: typeof EDIT_PAGE_SOURCE; type: "ready"; page: EditPageInfo }
+  | {
+      source: typeof EDIT_PAGE_SOURCE;
+      type: "ready";
+      page: EditPageInfo;
+      version: string;
+    }
+  | {
+      source: typeof EDIT_PAGE_SOURCE;
+      type: "hello";
+      version: string;
+    }
   | {
       source: typeof EDIT_PAGE_SOURCE;
       type: "edit";
@@ -37,6 +48,7 @@ export type PageEditMessage =
   | { source: typeof EDIT_PAGE_SOURCE; type: "select"; context: EditElementContext };
 
 export type AppEditMessage =
+  | { source: typeof EDITOR_APP_SOURCE; type: "hello" }
   | { source: typeof EDITOR_APP_SOURCE; type: "mode"; mode: EditMode }
   | {
       source: typeof EDITOR_APP_SOURCE;
