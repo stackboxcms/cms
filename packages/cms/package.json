@@ -10,7 +10,8 @@
   "homepage": "https://github.com/stackboxcms/cms",
   "repository": {
     "type": "git",
-    "url": "git+https://github.com/stackboxcms/cms.git"
+    "url": "git+https://github.com/stackboxcms/cms.git",
+    "directory": "packages/cms"
   },
   "files": [
     "dist",
@@ -47,9 +48,9 @@
   },
   "scripts": {
     "build": "node scripts/emit-dist.mjs && node scripts/copy-plugin-assets.mjs && node scripts/generate-agents-md.mjs",
-    "test": "npm run build && node --import tsx --test test/*.test.ts",
+    "test": "pnpm run build && node --import tsx --test test/*.test.ts",
     "typecheck": "tsc --noEmit -p tsconfig.json",
-    "prepack": "npm run build"
+    "prepack": "pnpm run build"
   },
   "dependencies": {
     "@hyperspan/html": "^1.0.3",

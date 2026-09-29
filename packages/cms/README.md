@@ -330,7 +330,7 @@ npx stackbox-cms build
 
 ## AI agents
 
-Bundled plugins include agent playbooks. See [`dist/AGENTS.md`](dist/AGENTS.md) (generated on `npm run build`) for site conventions and a plugin keyword catalog. When a user asks for a feature (e.g. "add a blog"), read **only** the matching plugin's `AGENTS.md` — do not load every plugin file.
+Bundled plugins include agent playbooks. See [`dist/AGENTS.md`](dist/AGENTS.md) (generated on `pnpm run build`) for site conventions and a plugin keyword catalog. When a user asks for a feature (e.g. "add a blog"), read **only** the matching plugin's `AGENTS.md` — do not load every plugin file.
 
 If you are building a site that uses this package, add this to your project's `AGENTS.md`:
 
@@ -342,10 +342,12 @@ Do not reimplement bundled plugins.
 
 ## Development
 
+From the repository root:
+
 ```bash
-npm run build      # compile the package
-npm run typecheck  # type-check without emitting
-npm test           # build, then run the test suite
+pnpm --filter @stackbox/cms build
+pnpm --filter @stackbox/cms typecheck
+pnpm --filter @stackbox/cms test
 ```
 
 ## License

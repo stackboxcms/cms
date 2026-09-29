@@ -1,0 +1,9 @@
+packages:
+  - "packages/*"
+
+# `pnpm add` inside a package records sibling deps as workspace:^ / workspace:*.
+saveWorkspaceProtocol: rolling
+
+# esbuild's install script downloads its platform binary.
+allowBuilds:
+  esbuild: true

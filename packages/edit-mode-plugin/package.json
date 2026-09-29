@@ -11,7 +11,7 @@
   "repository": {
     "type": "git",
     "url": "git+https://github.com/stackboxcms/cms.git",
-    "directory": "packages/edit"
+    "directory": "packages/edit-mode-plugin"
   },
   "files": [
     "dist"
@@ -24,15 +24,16 @@
   },
   "scripts": {
     "build": "tsc -p tsconfig.json && tsc -p tsconfig.client.json && node scripts/build-client.mjs",
-    "test": "npm run build && node --import tsx --test test/*.test.ts",
+    "test": "pnpm run build && node --import tsx --test test/*.test.ts",
     "typecheck": "tsc -p tsconfig.json --noEmit && tsc -p tsconfig.client.json",
-    "prepack": "npm run build"
+    "prepack": "pnpm run build"
   },
   "peerDependencies": {
-    "@stackbox/cms": "^0.1.0"
+    "@stackbox/cms": "workspace:^"
   },
   "devDependencies": {
-    "@stackbox/cms": "file:../..",
+    "@hyperspan/html": "^1.0.3",
+    "@stackbox/cms": "workspace:^",
     "@types/node": "^22.15.21",
     "esbuild": "^0.25.9",
     "tsx": "^4.19.4",

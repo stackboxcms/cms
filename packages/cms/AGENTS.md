@@ -136,7 +136,7 @@ Before implementing a use-case (blog, newsletter, docs, …), check this table. 
 <!-- plugin-catalog:start -->
 <!-- plugin-catalog:end -->
 
-When adding a new plugin to this package, add a folder under `src/plugins/<name>/`, **default-export** the `createPlugin()` registration from `index.ts`, and create `src/plugins/<name>/AGENTS.md` using the same heading structure as the blog plugin. Run `npm run build` — the package scans `dist/plugins/` and writes the keyword catalog to `dist/AGENTS.md` from each plugin's `keywords`. Document all export kinds (factory, types, blocks, helpers).
+When adding a new plugin to this package, add a folder under `src/plugins/<name>/`, **default-export** the `createPlugin()` registration from `index.ts`, and create `src/plugins/<name>/AGENTS.md` using the same heading structure as the blog plugin. Run `pnpm run build` — the package scans `dist/plugins/` and writes the keyword catalog to `dist/AGENTS.md` from each plugin's `keywords`. Document all export kinds (factory, types, blocks, helpers).
 
 ## Plugin layout and assets
 
