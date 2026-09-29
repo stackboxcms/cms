@@ -19,3 +19,5 @@ pnpm --filter @stackbox/edit-mode-plugin test
 ```
 
 The root `package.json` is private and is not published. `pnpm build`, `pnpm test`, and `pnpm typecheck` run that script in every package.
+
+**Publishing:** use `pnpm -r publish` only — never `npm publish`. pnpm rewrites `workspace:` ranges to semver in the published manifest; npm leaves them as `workspace:^`, which breaks consumers. See [README.md](README.md#publishing).

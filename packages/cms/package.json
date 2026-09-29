@@ -1,6 +1,6 @@
 {
   "name": "@stackbox/cms",
-  "version": "0.1.0",
+  "version": "0.1.2",
   "description": "Stackbox CMS engine",
   "type": "module",
   "license": "BSD-3-Clause",
@@ -44,7 +44,7 @@
     }
   },
   "bin": {
-    "stackbox-cms": "./dist/cli.js"
+    "stackbox-cms": "dist/cli.js"
   },
   "scripts": {
     "build": "node scripts/emit-dist.mjs && node scripts/copy-plugin-assets.mjs && node scripts/generate-agents-md.mjs",
