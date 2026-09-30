@@ -44,8 +44,10 @@ Packages in this workspace use `workspace:` protocol ranges (for example `@stack
 3. Publish every public package with pnpm (root is `private` and is skipped):
 
    ```bash
-   pnpm -r publish --access public
+   pnpm publish
    ```
+
+   That runs `pnpm -r publish --access public` so workspace deps are rewritten to semver.
 
    Or one package:
 
