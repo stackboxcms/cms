@@ -7,7 +7,7 @@ const pluginsDistDir = join(root, "dist", "plugins");
 
 /**
  * Discover bundled plugins from dist/plugins/<dir>/index.js after compile.
- * Each folder under src/plugins/ with a default-exported createPlugin() registration
+ * Each folder under src/plugins/ with a default-exported plugin factory
  * is included automatically — no manual registry to maintain.
  */
 export async function discoverBundledPlugins() {
@@ -31,7 +31,7 @@ export async function discoverBundledPlugins() {
     }
 
     const mod = await import(pathToFileURL(indexJs).href);
-    const plugin = mod.default;
+    const plugin = typeof mod.default === "function" ? mod.default() : mod.default;
     if (
       !plugin ||
       typeof plugin !== "object" ||
@@ -40,7 +40,7 @@ export async function discoverBundledPlugins() {
       plugin.keywords.length === 0
     ) {
       throw new Error(
-        `discoverBundledPlugins(): dist/plugins/${dir}/index.js must default-export createPlugin() with keywords`,
+        `discoverBundledPlugins(): dist/plugins/${dir}/index.js must default-export a plugin factory (or createPlugin() result) with keywords`,
       );
     }
 

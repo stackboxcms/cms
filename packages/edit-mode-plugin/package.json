@@ -1,6 +1,6 @@
 {
   "name": "@stackbox/edit-mode-plugin",
-  "version": "0.1.2",
+  "version": "0.1.3",
   "description": "In-iframe edit behavior for Stackbox sites",
   "type": "module",
   "license": "BSD-3-Clause",

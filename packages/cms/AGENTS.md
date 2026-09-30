@@ -102,12 +102,12 @@ Optional `source?: string` on `createPage` and `createBlock` (e.g. `import.meta.
 
 ## Plugins vs blocks
 
-- **Plugin** — a packaged use-case (bundled under `@stackbox/cms/plugins/<name>`, or a third-party package with the same shape). **Default-exports** a `createPlugin()` registration object, plus named factories, content objects, blocks, types, and helpers.
+- **Plugin** — a packaged use-case (bundled under `@stackbox/cms/plugins/<name>`, or a third-party package with the same shape). **Default-exports** a factory you call (`blogPlugin()`, `blogPlugin({ root: "." })`), plus named factories, content objects, blocks, types, and helpers.
 - **Block** — a core primitive via `createBlock()`. Renders HTML into a template slot. Usable inside or outside plugins.
 
 Slot content is `Block | string`. Plugin content arrays can interleave blocks and HTML strings.
 
-**Register plugins when you use them.** Importing a plugin module is not enough — pass its default export to `createSite({ plugins })`. Only registered plugins have their `public_assets/` copied or served. Third-party packages are registered the same way; they are not discovered from a `plugins/` folder.
+**Register plugins when you use them.** Importing a plugin module is not enough — call the factory and pass the result to `createSite({ plugins })`. Only registered plugins have their `public_assets/` copied or served. Third-party packages are registered the same way; they are not discovered from a `plugins/` folder.
 
 ```ts
 import blogPlugin from "@stackbox/cms/plugins/blog";
@@ -115,7 +115,7 @@ import randomQuotePlugin from "@stackbox/cms/plugins/random-quote";
 
 export default createSite(siteConfig, {
   pages: [homePage, ...blogListingPages, ...blogPostPages],
-  plugins: [blogPlugin, randomQuotePlugin],
+  plugins: [blogPlugin(), randomQuotePlugin()],
 });
 ```
 
@@ -136,14 +136,14 @@ Before implementing a use-case (blog, newsletter, docs, …), check this table. 
 <!-- plugin-catalog:start -->
 <!-- plugin-catalog:end -->
 
-When adding a new plugin to this package, add a folder under `src/plugins/<name>/`, **default-export** the `createPlugin()` registration from `index.ts`, and create `src/plugins/<name>/AGENTS.md` using the same heading structure as the blog plugin. Run `pnpm run build` — the package scans `dist/plugins/` and writes the keyword catalog to `dist/AGENTS.md` from each plugin's `keywords`. Document all export kinds (factory, types, blocks, helpers).
+When adding a new plugin to this package, add a folder under `src/plugins/<name>/`, **default-export** a factory that returns `createPlugin()` from `index.ts`, and create `src/plugins/<name>/AGENTS.md` using the same heading structure as the blog plugin. Run `pnpm run build` — the package scans `dist/plugins/` and writes the keyword catalog to `dist/AGENTS.md` from each plugin's `keywords`. Document all export kinds (factory, types, blocks, helpers).
 
 ## Plugin layout and assets
 
 Every plugin — bundled or third-party — has the same shape:
 
 ```
-index.ts            # default export: createPlugin({ ... }); named exports: factories, types, blocks
+index.ts            # default export: blogPlugin(options?) factory; named exports: factories, types, blocks
 AGENTS.md           # agent playbook
 assets/             # private files imported by JS (JSON, templates, …)
 public_assets/      # files served over HTTP (images, CSS, fonts, …)

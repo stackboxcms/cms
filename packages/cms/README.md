@@ -131,7 +131,7 @@ import editPlugin from "@stackbox/edit-mode-plugin";
 
 export default createSite(siteConfig, {
   pages: [homePage],
-  plugins: [editPlugin],
+  plugins: [editPlugin()], // editPlugin({ root: "." }) on Cloudflare Workers
 });
 ```
 
@@ -215,7 +215,7 @@ import aboutPage from "./pages/about";
 
 export default createSite(siteConfig, {
   pages: [homePage, aboutPage],
-  // plugins: [blogPlugin, randomQuotePlugin], // only plugins this site uses
+  // plugins: [blogPlugin(), randomQuotePlugin()], // only plugins this site uses
 });
 ```
 
@@ -269,7 +269,7 @@ import { blogListingPages, blogPostPages } from "./pages/blog";
 
 export default createSite(siteConfig, {
   pages: [homePage, ...blogListingPages, ...blogPostPages],
-  plugins: [blogPlugin],
+  plugins: [blogPlugin()],
 });
 ```
 
@@ -298,7 +298,7 @@ Register every plugin you use:
 ```ts
 export default createSite(siteConfig, {
   pages: [homePage, ...blogListingPages, ...blogPostPages],
-  plugins: [blogPlugin, randomQuotePlugin],
+  plugins: [blogPlugin(), randomQuotePlugin()],
 });
 ```
 
@@ -311,7 +311,7 @@ import sitemapPlugin from "@stackbox/cms/plugins/sitemap";
 
 export default createSite(siteConfig, {
   pages: [homePage, aboutPage],
-  plugins: [sitemapPlugin],
+  plugins: [sitemapPlugin()],
 });
 ```
 

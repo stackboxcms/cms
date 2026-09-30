@@ -16,7 +16,7 @@ The user asks for any of:
 
 ## Exports
 
-- **default export** — `createSitemap()` registration; pass to `createSite({ plugins })`
+- **default export** — `createSitemap(options?)` factory; call it and pass the result to `createSite({ plugins })`
 - `createSitemap(options?)` — factory when you need `baseUrl`, `extraUrls`, or `exclude`
 - `renderSitemapXml(site, options?)` — shared XML renderer (fetch + build use this)
 - `collectSitemapUrls(site, options?)` — absolute `<loc>` URLs
@@ -62,7 +62,7 @@ import sitemapPlugin from "@stackbox/cms/plugins/sitemap";
 
 export default createSite(siteConfig, {
   pages: [homePage, aboutPage],
-  plugins: [sitemapPlugin],
+  plugins: [sitemapPlugin()],
 });
 ```
 

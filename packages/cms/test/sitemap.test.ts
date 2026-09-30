@@ -15,7 +15,7 @@ import { createSite, createSiteConfig } from "../src/site.js";
 import { createTemplate } from "../src/templates.js";
 
 function createFixtureSite(
-  plugins: readonly typeof sitemapPlugin[] = [],
+  plugins: readonly ReturnType<typeof sitemapPlugin>[] = [],
   pages?: ReturnType<typeof createHomePage>[],
 ) {
   const siteConfig = createSiteConfig({
@@ -117,7 +117,7 @@ describe("sitemap plugin fetch", () => {
   });
 
   it("serves sitemap.xml when the plugin is registered", async () => {
-    const site = createFixtureSite([sitemapPlugin]);
+    const site = createFixtureSite([sitemapPlugin()]);
     const res = await site.fetch(
       new Request("https://example.com/sitemap.xml"),
     );
@@ -129,7 +129,7 @@ describe("sitemap plugin fetch", () => {
   });
 
   it("returns empty body for HEAD", async () => {
-    const site = createFixtureSite([sitemapPlugin]);
+    const site = createFixtureSite([sitemapPlugin()]);
     const res = await site.fetch(
       new Request("https://example.com/sitemap.xml", { method: "HEAD" }),
     );
@@ -189,7 +189,7 @@ describe("sitemap plugin build", () => {
   it("writes sitemap.xml into publicDir", async () => {
     const dest = mkdtempSync(join(tmpdir(), "stackbox-sitemap-"));
     try {
-      const site = createFixtureSite([sitemapPlugin]);
+      const site = createFixtureSite([sitemapPlugin()]);
       await build({
         site,
         outDir: join(dest, "dist"),

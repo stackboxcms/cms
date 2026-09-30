@@ -15,7 +15,7 @@ import randomQuotePlugin from "../src/plugins/random-quote/index.js";
 import { createSite, createSiteConfig } from "../src/site.js";
 import { createTemplate } from "../src/templates.js";
 
-function createHomeSite(plugins: readonly typeof randomQuotePlugin[] = []) {
+function createHomeSite(plugins: readonly ReturnType<typeof randomQuotePlugin>[] = []) {
   const siteConfig = createSiteConfig({ name: "Asset Test" });
   const template = createTemplate({
     siteConfig,
@@ -82,7 +82,7 @@ describe("plugin public assets", () => {
     const res = servePluginAsset(
       "/_sb/plugins/sb-random-quote/widget.css",
       "GET",
-      [randomQuotePlugin],
+      [randomQuotePlugin()],
     );
     assert.ok(res);
     assert.strictEqual(res!.status, 200);
@@ -98,7 +98,7 @@ describe("plugin public assets", () => {
     );
     assert.strictEqual(missing.status, 404);
 
-    const withPlugin = createHomeSite([randomQuotePlugin]);
+    const withPlugin = createHomeSite([randomQuotePlugin()]);
     const res = await withPlugin.fetch(
       new Request("https://example.com/_sb/plugins/sb-random-quote/widget.css"),
     );
@@ -108,7 +108,7 @@ describe("plugin public assets", () => {
 
   it("createSite rejects duplicate plugin names", () => {
     assert.throws(
-      () => createHomeSite([randomQuotePlugin, randomQuotePlugin]),
+      () => createHomeSite([randomQuotePlugin(), randomQuotePlugin()]),
       /duplicate plugin name/,
     );
   });
@@ -141,7 +141,7 @@ describe("plugin public assets", () => {
   it("copyRegisteredPluginAssets writes only registered public files", () => {
     const dest = mkdtempSync(join(tmpdir(), "stackbox-public-"));
     try {
-      copyRegisteredPluginAssets([randomQuotePlugin], dest);
+      copyRegisteredPluginAssets([randomQuotePlugin()], dest);
       const css = join(dest, "_sb", "plugins", "sb-random-quote", "widget.css");
       assert.match(readFileSync(css, "utf8"), /data-block="random-quote"/);
       assert.ok(

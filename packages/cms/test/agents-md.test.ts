@@ -40,7 +40,7 @@ describe("dist/AGENTS.md", () => {
       "utf8",
     );
 
-    for (const plugin of [blogPlugin, randomQuotePlugin, sitemapPlugin]) {
+    for (const plugin of [blogPlugin(), randomQuotePlugin(), sitemapPlugin()]) {
       for (const keyword of plugin.keywords) {
         assert.match(
           md,

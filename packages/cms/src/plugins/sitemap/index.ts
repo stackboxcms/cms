@@ -14,6 +14,8 @@ export type SitemapOptions = {
   exclude?: readonly string[] | ((path: string) => boolean);
 };
 
+export type SitemapPluginOptions = SitemapOptions & SB.PluginFactoryOptions;
+
 function resolveBaseUrl(site: SB.Site, options: SitemapOptions): string {
   const raw = options.baseUrl ?? site.siteConfig.config.url;
   if (typeof raw !== "string" || raw.trim().length === 0) {
@@ -129,28 +131,42 @@ function createSitemapRoutes(
   ] as const;
 }
 
-export function createSitemap(options: SitemapOptions = {}): SB.Plugin {
+export function createSitemap(options: SitemapPluginOptions = {}): SB.Plugin {
+  const {
+    name,
+    description,
+    version,
+    keywords,
+    root,
+    routes,
+    build,
+    hooks,
+    ...sitemapOptions
+  } = options;
+
   return createPlugin({
-    name: "sb-sitemap",
+    name: name ?? "sb-sitemap",
     description:
+      description ??
       "Generate sitemap.xml from site pages for search engines and static deploys.",
-    version: "1.0.0",
-    keywords: [
+    version: version ?? "1.0.0",
+    keywords: keywords ?? [
       "sitemap",
       "sitemap.xml",
       "seo",
       "search engines",
       "xml sitemap",
     ],
-    root: import.meta.dirname,
-    routes(ctx) {
-      return createSitemapRoutes(ctx, options);
-    },
-    build(ctx) {
-      const xml = renderSitemapXml(ctx.site, options);
-      writeFileSync(join(ctx.publicDir, "sitemap.xml"), xml, "utf8");
-    },
+    root: root || import.meta.dirname || ".",
+    routes: routes ?? ((ctx) => createSitemapRoutes(ctx, sitemapOptions)),
+    build:
+      build ??
+      ((ctx) => {
+        const xml = renderSitemapXml(ctx.site, sitemapOptions);
+        writeFileSync(join(ctx.publicDir, "sitemap.xml"), xml, "utf8");
+      }),
+    ...(hooks ? { hooks } : {}),
   });
 }
 
-export default createSitemap();
+export default createSitemap;

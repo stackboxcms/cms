@@ -32,7 +32,7 @@ function createHomeSite() {
   });
   return createSite(siteConfig, {
     pages: [homePage],
-    plugins: [randomQuotePlugin],
+    plugins: [randomQuotePlugin()],
   });
 }
 

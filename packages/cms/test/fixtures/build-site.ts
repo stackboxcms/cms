@@ -21,5 +21,5 @@ const homePage = createPage(template, {
 
 export default createSite(siteConfig, {
   pages: [homePage],
-  plugins: [randomQuotePlugin],
+  plugins: [randomQuotePlugin()],
 });

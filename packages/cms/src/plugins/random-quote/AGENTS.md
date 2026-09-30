@@ -17,7 +17,7 @@ This plugin is a **block-only** example — it exports no page factory or conten
 
 ## Exports
 
-- **default export** — `createPlugin()` registration; pass to `createSite({ plugins })` to serve `public_assets/`
+- **default export** — `randomQuotePlugin(options?)` factory; call it and pass the result to `createSite({ plugins })` to serve `public_assets/`
 - `randomQuoteBlock(options?)` — block factory; `{ quotes }` overrides bundled defaults
 - `defaultQuotes` — bundled quote array (imported from `assets/quotes.json`)
 - `pickRandomQuote(quotes)` — picks one quote at random
@@ -52,7 +52,7 @@ import randomQuotePlugin from "@stackbox/cms/plugins/random-quote";
 
 export default createSite(siteConfig, {
   pages: [homePage],
-  plugins: [randomQuotePlugin],
+  plugins: [randomQuotePlugin()],
 });
 ```
 
@@ -95,7 +95,7 @@ import randomQuotePlugin from "@stackbox/cms/plugins/random-quote";
 
 export default createSite(siteConfig, {
   pages: [homePage],
-  plugins: [randomQuotePlugin],
+  plugins: [randomQuotePlugin()],
 });
 ```
 

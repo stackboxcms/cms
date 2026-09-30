@@ -18,7 +18,7 @@ The user asks for any of:
 
 ## Exports
 
-- **default export** — `createPlugin()` registration; pass to `createSite({ plugins })`
+- **default export** — `blogPlugin(options?)` factory; call it and pass the result to `createSite({ plugins })`
 - `createBlog()` — factory; returns `{ posts, listings }`
 - `BlogPostContent`, `BlogListingContent`, `Blog`, `BlogPost`, `BlogOptions` — types
 - `content[]` on post/listing objects accepts **blocks or HTML strings** — optional plugin blocks can be added later (e.g. share buttons)
@@ -128,7 +128,7 @@ import { blogListingPages, blogPostPages } from "./pages/blog";
 
 export default createSite(siteConfig, {
   pages: [homePage, ...blogListingPages, ...blogPostPages],
-  plugins: [blogPlugin],
+  plugins: [blogPlugin()],
 });
 ```
 

@@ -1,4 +1,5 @@
 import assert from "node:assert/strict";
+import { resolve } from "node:path";
 import { describe, it } from "node:test";
 import { html } from "@hyperspan/html";
 import { createBlock, createPage, createSite, createSiteConfig, createTemplate } from "@stackbox/cms";
@@ -37,7 +38,7 @@ function createEditFixture() {
 
   const site = createSite(siteConfig, {
     pages: [page],
-    plugins: [editPlugin],
+    plugins: [editPlugin()],
   });
 
   return { getBlockRenders: () => blockRenders, site };
@@ -92,5 +93,16 @@ describe("edit hooks", () => {
 
     await site.fetch(new Request("https://example.com/?sbedit=1"));
     assert.strictEqual(getBlockRenders(), 2);
+  });
+
+  it("accepts option overrides", () => {
+    const plugin = editPlugin({ name: "sb-edit-custom", root: "." });
+    assert.strictEqual(plugin.name, "sb-edit-custom");
+    assert.strictEqual(plugin.root, resolve("."));
+  });
+
+  it("defaults to a non-empty root", () => {
+    const plugin = editPlugin();
+    assert.ok(plugin.root.length > 0);
   });
 });

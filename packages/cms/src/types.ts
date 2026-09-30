@@ -305,6 +305,8 @@ export namespace Stackbox {
     hooks?: (ctx: PluginContext) => SiteHooks | void | Promise<SiteHooks>;
   };
 
+  export type PluginFactoryOptions = Partial<CreatePluginOptions>;
+
   export type Site<
     T extends Record<string, unknown> = Record<string, unknown>,
   > = {
