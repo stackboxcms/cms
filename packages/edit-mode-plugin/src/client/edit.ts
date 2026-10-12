@@ -110,10 +110,28 @@ function clip(value: string, max: number): string {
   return `${compact.slice(0, max)}…`;
 }
 
+function snippet(element: HTMLElement): string {
+  const copy = element.cloneNode(true);
+  if (!(copy instanceof HTMLElement)) {
+    return clip(element.outerHTML, 400);
+  }
+  for (const node of [copy, ...Array.from(copy.querySelectorAll("*"))]) {
+    if (!(node instanceof HTMLElement)) {
+      continue;
+    }
+    node.removeAttribute("data-sb-edit-target");
+    node.classList.remove("sb-edit-hover", "sb-edit-selected");
+    if (node.classList.length === 0) {
+      node.removeAttribute("class");
+    }
+  }
+  return clip(copy.outerHTML, 400);
+}
+
 function describeElement(element: HTMLElement): EditTarget {
   return {
     context: contextFor(element),
-    html: clip(element.outerHTML, 400),
+    html: snippet(element),
     tag: element.tagName.toLowerCase(),
     text: clip(element.innerText || element.textContent || "", 180),
   };
