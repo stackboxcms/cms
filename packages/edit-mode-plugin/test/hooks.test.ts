@@ -68,6 +68,7 @@ describe("edit hooks", () => {
     assert.match(body, /"path":"\/"/);
     assert.match(body, /"title":"Home"/);
     assert.match(body, /sb-edit\{display:contents\}/);
+    assert.match(body, /\.sb-edit-selected\{outline:2px solid #7c3aed/);
     assert.match(body, /src="\/_sb\/plugins\/sb-edit\/edit\.js"/);
   });
 

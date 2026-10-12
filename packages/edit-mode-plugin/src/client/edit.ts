@@ -1,6 +1,10 @@
 import { hrefWithEdit } from "../edit-url.js";
 import { EDIT_PAGE_SOURCE, EDITOR_APP_SOURCE, EDIT_PLUGIN_VERSION } from "../protocol.js";
-import type { EditBlockInfo, EditElementContext, EditMode, EditPageInfo } from "../protocol.js";
+import type { EditBlockInfo, EditElementContext, EditMode, EditPageInfo, EditTarget } from "../protocol.js";
+import { pickMarqueeIds, rectFromPoints } from "./marquee.js";
+import type { MarqueeBox } from "./marquee.js";
+import { createEditOverlay } from "./overlay.js";
+import type { EditOverlay } from "./overlay.js";
 
 const TEXT_TAGS = new Set([
   "A",
@@ -31,10 +35,17 @@ const TEXT_TAGS = new Set([
 ]);
 
 const FRAME_TARGETS = new Set(["_blank", "_parent", "_top"]);
+const SKIP_TAGS = new Set(["NOSCRIPT", "SCRIPT", "STYLE", "SB-EDIT"]);
+const MAX_SELECTED = 40;
+const DRAG_DISTANCE = 25;
 
 let mode: EditMode = "off";
 let hovered: HTMLElement | null = null;
 let editing: { element: HTMLElement; before: string; cancelled: boolean } | null = null;
+let selected: HTMLElement[] = [];
+let overlay: EditOverlay | null = null;
+let drag: { x: number; y: number; active: boolean; additive: boolean; pointerId: number } | null = null;
+let suppressClick = false;
 
 function pageInfo(): EditPageInfo {
   const node = document.querySelector("#sb-edit-page");
@@ -91,6 +102,23 @@ function selectorFor(element: Element): string {
   return `[data-sb-edit-target="${id}"]`;
 }
 
+function clip(value: string, max: number): string {
+  const compact = value.replace(/\s+/g, " ").trim();
+  if (compact.length <= max) {
+    return compact;
+  }
+  return `${compact.slice(0, max)}…`;
+}
+
+function describeElement(element: HTMLElement): EditTarget {
+  return {
+    context: contextFor(element),
+    html: clip(element.outerHTML, 400),
+    tag: element.tagName.toLowerCase(),
+    text: clip(element.innerText || element.textContent || "", 180),
+  };
+}
+
 function helloPayload(): { type: "hello"; version: string } {
   return { type: "hello", version: EDIT_PLUGIN_VERSION };
 }
@@ -105,6 +133,59 @@ function postToApp(message: Record<string, unknown>): void {
 function clearHover(): void {
   hovered?.classList.remove("sb-edit-hover");
   hovered = null;
+  overlay?.setHover(null);
+}
+
+function sameSelection(next: HTMLElement[]): boolean {
+  if (next.length !== selected.length) {
+    return false;
+  }
+  for (let index = 0; index < next.length; index += 1) {
+    if (next[index] !== selected[index]) {
+      return false;
+    }
+  }
+  return true;
+}
+
+function setSelected(next: HTMLElement[]): void {
+  const capped = next.slice(0, MAX_SELECTED);
+  if (sameSelection(capped)) {
+    overlay?.setSelection(selected);
+    return;
+  }
+  for (const element of selected) {
+    element.classList.remove("sb-edit-selected");
+  }
+  selected = capped;
+  for (const element of selected) {
+    element.classList.add("sb-edit-selected");
+  }
+  overlay?.setSelection(selected);
+  postToApp({ targets: selected.map(describeElement), type: "select" });
+}
+
+function toggleSelected(element: HTMLElement, additive: boolean): void {
+  if (!additive) {
+    setSelected([element]);
+    overlay?.focusPrompt();
+    return;
+  }
+  if (selected.includes(element)) {
+    setSelected(selected.filter((item) => item !== element));
+    return;
+  }
+  setSelected([...selected, element]);
+  overlay?.focusPrompt();
+}
+
+function canSelect(element: HTMLElement | null): element is HTMLElement {
+  return (
+    element !== null &&
+    element !== document.body &&
+    element !== document.documentElement &&
+    element.id !== "sb-edit-overlay"
+  );
 }
 
 function hasDirectText(element: HTMLElement): boolean {
@@ -127,6 +208,16 @@ function textElement(target: EventTarget | null): HTMLElement | null {
       return current;
     }
     current = current.parentElement;
+  }
+  return null;
+}
+
+function elementFromTarget(target: EventTarget | null): HTMLElement | null {
+  if (target instanceof HTMLElement) {
+    return target;
+  }
+  if (target instanceof Element) {
+    return target.parentElement;
   }
   return null;
 }
@@ -170,6 +261,7 @@ function beginEdit(element: HTMLElement): void {
   const before = element.textContent ?? "";
   editing = { before, cancelled: false, element };
   clearHover();
+  setSelected([]);
   element.contentEditable = "true";
   element.focus();
 }
@@ -211,6 +303,192 @@ function revertText(selector: string, beforeText: string, afterText: string): vo
   element.textContent = beforeText;
 }
 
+function smallestTextMatch(root: ParentNode, beforeText: string): HTMLElement | null {
+  const nodes: HTMLElement[] = [];
+  if (root instanceof HTMLElement) {
+    nodes.push(root);
+  }
+  for (const node of Array.from(root.querySelectorAll("*"))) {
+    if (node instanceof HTMLElement) {
+      nodes.push(node);
+    }
+  }
+  let best: HTMLElement | null = null;
+  let bestCount = Number.POSITIVE_INFINITY;
+  for (const node of nodes) {
+    if ((node.textContent ?? "") !== beforeText) {
+      continue;
+    }
+    const count = node.querySelectorAll("*").length;
+    if (count < bestCount) {
+      best = node;
+      bestCount = count;
+    }
+  }
+  return best;
+}
+
+function applyText(record: Record<string, unknown>): void {
+  const beforeText = typeof record.beforeText === "string" ? record.beforeText : "";
+  const afterText = typeof record.afterText === "string" ? record.afterText : "";
+  if (beforeText === "" && afterText === "") {
+    return;
+  }
+  const path = typeof record.path === "string" ? record.path : "";
+  if (path !== "" && path !== pageInfo().path) {
+    return;
+  }
+  const selector = typeof record.selector === "string" ? record.selector : "";
+  if (selector !== "") {
+    const selectedNode = document.querySelector(selector);
+    if (selectedNode instanceof HTMLElement && (selectedNode.textContent ?? "") === beforeText) {
+      selectedNode.textContent = afterText;
+      return;
+    }
+  }
+  let root: ParentNode = document.body;
+  const slot = typeof record.slot === "string" ? record.slot : "";
+  const index = typeof record.index === "string" ? record.index : "";
+  if (slot !== "") {
+    const block = document.querySelector(`sb-edit[slot="${CSS.escape(slot)}"][index="${CSS.escape(index)}"]`);
+    if (block instanceof HTMLElement) {
+      root = block;
+    }
+  }
+  const match = smallestTextMatch(root, beforeText);
+  if (match !== null) {
+    match.textContent = afterText;
+  }
+}
+
+function parentBoxId(element: HTMLElement, ids: Map<HTMLElement, number>): number | null {
+  let parent = element.parentElement;
+  while (parent !== null) {
+    const id = ids.get(parent);
+    if (id !== undefined) {
+      return id;
+    }
+    parent = parent.parentElement;
+  }
+  return null;
+}
+
+function collectBoxes(): { boxes: MarqueeBox[]; elements: HTMLElement[] } {
+  const elements: HTMLElement[] = [];
+  const ids = new Map<HTMLElement, number>();
+  const boxes: MarqueeBox[] = [];
+  for (const node of Array.from(document.body.querySelectorAll("*"))) {
+    if (!(node instanceof HTMLElement) || SKIP_TAGS.has(node.tagName) || node.closest("#sb-edit-overlay") !== null) {
+      continue;
+    }
+    const id = elements.length;
+    elements.push(node);
+    ids.set(node, id);
+    const rect = node.getBoundingClientRect();
+    boxes.push({
+      height: rect.height,
+      id,
+      left: rect.left,
+      parentId: parentBoxId(node, ids),
+      top: rect.top,
+      width: rect.width,
+    });
+  }
+  return { boxes, elements };
+}
+
+function selectMarquee(rect: { top: number; left: number; width: number; height: number }, additive: boolean): void {
+  const { boxes, elements } = collectBoxes();
+  const picked = pickMarqueeIds(boxes, rect)
+    .map((id) => elements[id])
+    .filter((element): element is HTMLElement => element !== undefined);
+  if (picked.length === 0) {
+    return;
+  }
+  if (!additive) {
+    setSelected(picked);
+    overlay?.focusPrompt();
+    return;
+  }
+  const merged = [...selected];
+  for (const element of picked) {
+    if (!merged.includes(element)) {
+      merged.push(element);
+    }
+  }
+  setSelected(merged);
+  overlay?.focusPrompt();
+}
+
+function stopDrag(): void {
+  drag = null;
+  document.removeEventListener("pointermove", onPointerMove, true);
+  document.removeEventListener("pointerup", onPointerUp, true);
+  document.removeEventListener("pointercancel", onPointerUp, true);
+  overlay?.setMarquee(null);
+}
+
+function onPointerMove(event: PointerEvent): void {
+  if (drag === null || event.pointerId !== drag.pointerId) {
+    return;
+  }
+  const dx = event.clientX - drag.x;
+  const dy = event.clientY - drag.y;
+  if (!drag.active && dx * dx + dy * dy < DRAG_DISTANCE) {
+    return;
+  }
+  drag.active = true;
+  event.preventDefault();
+  clearHover();
+  overlay?.setMarquee(rectFromPoints(drag.x, drag.y, event.clientX, event.clientY));
+}
+
+function onPointerUp(event: PointerEvent): void {
+  if (drag === null || event.pointerId !== drag.pointerId) {
+    return;
+  }
+  const current = drag;
+  const cancelled = event.type === "pointercancel";
+  stopDrag();
+  if (!current.active || cancelled) {
+    return;
+  }
+  suppressClick = true;
+  selectMarquee(rectFromPoints(current.x, current.y, event.clientX, event.clientY), current.additive);
+}
+
+function onPointerDown(event: PointerEvent): void {
+  suppressClick = false;
+  if (mode !== "elements" || editing !== null || event.button !== 0 || drag !== null) {
+    return;
+  }
+  if (overlay?.isOverlayEvent(event) === true) {
+    return;
+  }
+  drag = {
+    active: false,
+    additive: event.shiftKey || event.metaKey,
+    pointerId: event.pointerId,
+    x: event.clientX,
+    y: event.clientY,
+  };
+  document.addEventListener("pointermove", onPointerMove, { capture: true, passive: false });
+  document.addEventListener("pointerup", onPointerUp, true);
+  document.addEventListener("pointercancel", onPointerUp, true);
+}
+
+function setMode(next: EditMode): void {
+  mode = next;
+  document.documentElement.classList.toggle("sb-edit-on", next === "elements");
+  if (next === "elements") {
+    return;
+  }
+  stopDrag();
+  clearHover();
+  cancelEdit();
+  setSelected([]);
+}
+
 function onMessage(event: MessageEvent): void {
   if (event.source !== window.parent) {
     return;
@@ -228,11 +506,10 @@ function onMessage(event: MessageEvent): void {
     return;
   }
   if (record.type === "mode" && (record.mode === "off" || record.mode === "elements" || record.mode === "chat")) {
-    mode = record.mode;
-    if (mode !== "elements") {
-      clearHover();
-      cancelEdit();
-    }
+    setMode(record.mode);
+  }
+  if (record.type === "clear-selection") {
+    setSelected([]);
   }
   if (
     record.type === "revert" &&
@@ -242,14 +519,25 @@ function onMessage(event: MessageEvent): void {
   ) {
     revertText(record.selector, record.beforeText, record.afterText);
   }
+  if (record.type === "apply") {
+    applyText(record);
+  }
+}
+
+function overlayTarget(target: EventTarget | null): boolean {
+  if (!(target instanceof Node)) {
+    return false;
+  }
+  const host = document.querySelector("#sb-edit-overlay");
+  return host !== null && (target === host || host.contains(target));
 }
 
 function onPointerOver(event: PointerEvent): void {
-  if (mode !== "elements" || editing !== null) {
+  if (mode !== "elements" || editing !== null || drag?.active === true || overlay?.isOverlayEvent(event) === true) {
     return;
   }
   const element = event.target instanceof HTMLElement ? event.target : null;
-  if (element === null || element === document.body || element === document.documentElement) {
+  if (!canSelect(element)) {
     return;
   }
   if (hovered !== null && hovered !== element) {
@@ -257,12 +545,17 @@ function onPointerOver(event: PointerEvent): void {
   }
   hovered = element;
   element.classList.add("sb-edit-hover");
+  overlay?.setHover(element);
 }
 
 function onPointerOut(event: PointerEvent): void {
-  if (event.target === hovered) {
-    clearHover();
+  if (event.target !== hovered) {
+    return;
   }
+  if (overlayTarget(event.relatedTarget)) {
+    return;
+  }
+  clearHover();
 }
 
 function onClick(event: MouseEvent): void {
@@ -270,7 +563,23 @@ function onClick(event: MouseEvent): void {
   if (anchor !== null) {
     rewriteAnchor(anchor);
   }
-  if (mode !== "elements" || editing !== null) {
+  if (suppressClick) {
+    suppressClick = false;
+    event.preventDefault();
+    event.stopPropagation();
+    return;
+  }
+  if (overlay?.isOverlayEvent(event) === true || mode !== "elements" || editing !== null) {
+    return;
+  }
+  const element = elementFromTarget(event.target);
+  if (!canSelect(element)) {
+    return;
+  }
+  if (event.shiftKey || event.metaKey) {
+    event.preventDefault();
+    event.stopPropagation();
+    toggleSelected(element, true);
     return;
   }
   const text = textElement(event.target);
@@ -280,23 +589,27 @@ function onClick(event: MouseEvent): void {
     beginEdit(text);
     return;
   }
-  if (event.target instanceof Element) {
-    postToApp({ context: contextFor(event.target), type: "select" });
-  }
+  event.preventDefault();
+  event.stopPropagation();
+  toggleSelected(element, false);
 }
 
 function onKeyDown(event: KeyboardEvent): void {
-  if (editing === null) {
+  if (editing !== null) {
+    if (event.key === "Escape") {
+      event.preventDefault();
+      cancelEdit();
+      return;
+    }
+    if (event.key === "Enter" && !event.shiftKey) {
+      event.preventDefault();
+      commitEdit();
+    }
     return;
   }
-  if (event.key === "Escape") {
+  if (event.key === "Escape" && selected.length > 0) {
     event.preventDefault();
-    cancelEdit();
-    return;
-  }
-  if (event.key === "Enter" && !event.shiftKey) {
-    event.preventDefault();
-    commitEdit();
+    setSelected([]);
   }
 }
 
@@ -306,10 +619,48 @@ function onBlur(event: FocusEvent): void {
   }
 }
 
-function boot(): void {
-  if (document.querySelector("#sb-edit-page") === null) {
+function onDragStart(event: DragEvent): void {
+  if (mode === "elements") {
+    event.preventDefault();
+  }
+}
+
+function submitPrompt(prompt: string): void {
+  const text = prompt.trim();
+  if (text === "" || selected.length === 0) {
     return;
   }
+  postToApp({
+    prompt: text,
+    targets: selected.map(describeElement),
+    type: "prompt",
+  });
+  setSelected([]);
+}
+
+function boot(): void {
+  if (document.querySelector("#sb-edit-page") === null || document.querySelector("#sb-edit-overlay") !== null) {
+    return;
+  }
+  overlay = createEditOverlay({
+    onChange(element, additive) {
+      if (!canSelect(element)) {
+        return;
+      }
+      clearHover();
+      toggleSelected(element, additive);
+    },
+    onClear() {
+      setSelected([]);
+    },
+    onLeaveHover(next) {
+      if (hovered !== null && next instanceof Node && (next === hovered || hovered.contains(next))) {
+        return;
+      }
+      clearHover();
+    },
+    onPrompt: submitPrompt,
+  });
   rewriteTree(document);
   const observer = new MutationObserver((records) => {
     for (const record of records) {
@@ -324,9 +675,11 @@ function boot(): void {
   window.addEventListener("message", onMessage);
   document.addEventListener("pointerover", onPointerOver);
   document.addEventListener("pointerout", onPointerOut);
+  document.addEventListener("pointerdown", onPointerDown, true);
   document.addEventListener("click", onClick, true);
   document.addEventListener("keydown", onKeyDown);
   document.addEventListener("focusout", onBlur);
+  document.addEventListener("dragstart", onDragStart);
   postToApp({ page: pageInfo(), type: "ready", version: EDIT_PLUGIN_VERSION });
   postToApp(helloPayload());
 }

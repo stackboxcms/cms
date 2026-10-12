@@ -8,5 +8,6 @@ export type {
   EditElementContext,
   EditMode,
   EditPageInfo,
+  EditTarget,
   PageEditMessage,
 } from "./protocol.js";

@@ -18,7 +18,7 @@ function escapeAttr(value: string): string {
   return value.replace(/&/g, "&amp;").replace(/"/g, "&quot;").replace(/</g, "&lt;");
 }
 
-const EDIT_STYLE = `<style id="sb-edit-style">sb-edit{display:contents}.sb-edit-hover{outline:2px solid #3b82f6;outline-offset:2px}</style>`;
+const EDIT_STYLE = `<style id="sb-edit-style">sb-edit{display:contents}.sb-edit-hover{outline:2px solid #3b82f6;outline-offset:2px}.sb-edit-selected{outline:2px solid #7c3aed;outline-offset:2px}html.sb-edit-on{user-select:none}html.sb-edit-on [contenteditable="true"]{user-select:text}</style>`;
 
 export function createEditHooks(): SB.SiteHooks {
   return {
