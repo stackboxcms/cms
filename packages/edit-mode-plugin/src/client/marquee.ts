@@ -11,35 +11,69 @@ export interface MarqueeBox extends MarqueeRect {
 }
 
 const MIN_EDGE = 2;
-const MAX_EDGE_RATIO = 1.35;
-const MAX_AREA_RATIO = 4;
+const MOSTLY_INSIDE = 0.6;
 
-export function intersects(a: MarqueeRect, b: MarqueeRect): boolean {
-  return a.left < b.left + b.width && a.left + a.width > b.left && a.top < b.top + b.height && a.top + a.height > b.top;
+function coverage(start: number, size: number, rangeStart: number, rangeSize: number): number {
+  const overlap = Math.min(start + size, rangeStart + rangeSize) - Math.max(start, rangeStart);
+  if (overlap <= 0 || size <= 0) {
+    return 0;
+  }
+  return overlap / size;
 }
 
-function fullyInside(box: MarqueeRect, marquee: MarqueeRect): boolean {
-  return (
-    box.left >= marquee.left &&
-    box.top >= marquee.top &&
-    box.left + box.width <= marquee.left + marquee.width &&
-    box.top + box.height <= marquee.top + marquee.height
-  );
+function axisCoverage(box: MarqueeRect, marquee: MarqueeRect): { across: number; down: number } {
+  return {
+    across: coverage(box.left, box.width, marquee.left, marquee.width),
+    down: coverage(box.top, box.height, marquee.top, marquee.height),
+  };
+}
+
+function mostlyInside(box: MarqueeRect, marquee: MarqueeRect): boolean {
+  const { across, down } = axisCoverage(box, marquee);
+  if (across <= 0 || down <= 0) {
+    return false;
+  }
+  return across >= MOSTLY_INSIDE || down >= MOSTLY_INSIDE;
+}
+
+function descendsFrom(box: MarqueeBox, ancestorId: number, byId: Map<number, MarqueeBox>): boolean {
+  let parentId = box.parentId;
+  while (parentId !== null) {
+    if (parentId === ancestorId) {
+      return true;
+    }
+    parentId = byId.get(parentId)?.parentId ?? null;
+  }
+  return false;
+}
+
+function containsElementOutside(box: MarqueeBox, marquee: MarqueeRect, boxes: MarqueeBox[], byId: Map<number, MarqueeBox>): boolean {
+  const { across, down } = axisCoverage(box, marquee);
+  const byWidth = across >= MOSTLY_INSIDE;
+  const byHeight = down >= MOSTLY_INSIDE;
+  for (const other of boxes) {
+    if (!descendsFrom(other, box.id, byId)) {
+      continue;
+    }
+    const child = axisCoverage(other, marquee);
+    if (byHeight && child.across > 0 && child.down <= 0) {
+      return true;
+    }
+    if (byWidth && child.down > 0 && child.across <= 0) {
+      return true;
+    }
+  }
+  return false;
 }
 
 export function pickMarqueeIds(boxes: MarqueeBox[], marquee: MarqueeRect): number[] {
-  const area = Math.max(marquee.width * marquee.height, 1);
   const byId = new Map(boxes.map((box) => [box.id, box]));
   const hits = new Set<number>();
   for (const box of boxes) {
-    if (box.width < MIN_EDGE || box.height < MIN_EDGE || !intersects(box, marquee)) {
+    if (box.width < MIN_EDGE || box.height < MIN_EDGE || !mostlyInside(box, marquee)) {
       continue;
     }
-    const spills =
-      box.width > marquee.width * MAX_EDGE_RATIO ||
-      box.height > marquee.height * MAX_EDGE_RATIO ||
-      box.width * box.height > area * MAX_AREA_RATIO;
-    if (spills && !fullyInside(box, marquee)) {
+    if (containsElementOutside(box, marquee, boxes, byId)) {
       continue;
     }
     hits.add(box.id);

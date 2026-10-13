@@ -198,12 +198,7 @@ function toggleSelected(element: HTMLElement, additive: boolean): void {
 }
 
 function canSelect(element: HTMLElement | null): element is HTMLElement {
-  return (
-    element !== null &&
-    element !== document.body &&
-    element !== document.documentElement &&
-    element.id !== "sb-edit-overlay"
-  );
+  return element !== null && element.id !== "sb-edit-overlay" && element.closest("#sb-edit-overlay") === null;
 }
 
 function hasDirectText(element: HTMLElement): boolean {
@@ -570,7 +565,7 @@ function onPointerOut(event: PointerEvent): void {
   if (event.target !== hovered) {
     return;
   }
-  if (overlayTarget(event.relatedTarget)) {
+  if (overlayTarget(event.relatedTarget) || overlayTarget(document.elementFromPoint(event.clientX, event.clientY))) {
     return;
   }
   clearHover();

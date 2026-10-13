@@ -77,51 +77,62 @@ export function createEditOverlay(handlers: OverlayHandlers): EditOverlay {
   const style = document.createElement("style");
   style.textContent = `
     .chip[hidden], .bar[hidden], .marquee[hidden] { display: none !important; }
-    .chip, .bar, .bar input, .bar button { font: 13px/1.2 ui-sans-serif, system-ui, sans-serif; }
+    .chip, .bar, .bar input, .bar button { font: 500 13px/1.2 ui-sans-serif, system-ui, sans-serif; }
     .chip, .bar button, .bar input { pointer-events: auto; }
+    .tag {
+      position: fixed;
+      border-radius: 4px;
+      background: #f5a024;
+      color: #1f1405;
+      padding: 5px 7px;
+      font: 500 11px/1 ui-monospace, SFMono-Regular, Menlo, monospace;
+      pointer-events: none;
+    }
     .chip {
       position: fixed;
       border: 0;
-      border-radius: 999px;
-      background: #111827;
-      color: #fff;
-      padding: 4px 8px;
-      box-shadow: 0 4px 16px rgba(0, 0, 0, 0.25);
+      border-radius: 4px;
+      background: #f5a024;
+      color: #1f1405;
+      padding: 5px 7px;
+      font: 500 11px/1 ui-monospace, SFMono-Regular, Menlo, monospace;
       cursor: pointer;
     }
-    .chip:focus-visible, .bar button:focus-visible, .bar input:focus { outline: 2px solid #7c3aed; outline-offset: 2px; }
+    .chip:focus-visible, .bar button:focus-visible, .bar input:focus { outline: 2px solid #0f6491; outline-offset: 2px; }
     .marquee {
       position: fixed;
-      border: 1px solid #7c3aed;
-      background: rgba(124, 58, 237, 0.15);
+      border: 1px dashed #f5a024;
+      background: rgba(245, 160, 36, 0.16);
       pointer-events: none;
     }
     .bar {
       position: fixed;
       display: flex;
-      gap: 6px;
+      gap: 8px;
       align-items: center;
       max-width: calc(100vw - 16px);
-      padding: 6px;
-      border-radius: 12px;
-      background: #111827;
-      color: #f9fafb;
-      box-shadow: 0 8px 28px rgba(0, 0, 0, 0.28);
-    }
-    .count { color: #9ca3af; padding: 0 4px; white-space: nowrap; }
-    .bar input {
-      width: min(220px, 42vw);
-      border: 0;
+      padding: 8px;
       border-radius: 8px;
-      background: #1f2937;
-      color: #fff;
+      background: #0c2333;
+      color: #e8f1f7;
+      box-shadow: 0 8px 24px rgba(17, 26, 34, 0.28);
+    }
+    .count { color: #93acbf; padding: 0 6px; font: 12px/1 ui-monospace, SFMono-Regular, Menlo, monospace; white-space: nowrap; }
+    .bar input {
+      width: min(420px, 56vw);
+      border: 1px solid #1d3d56;
+      border-radius: 6px;
+      background: #12304a;
+      color: #e8f1f7;
       padding: 8px 10px;
       user-select: text;
     }
-    .apply, .clear { border: 0; border-radius: 8px; cursor: pointer; }
-    .apply { background: #7c3aed; color: #fff; padding: 8px 12px; }
+    .bar input::placeholder { color: #93acbf; }
+    .apply, .clear { border: 0; border-radius: 6px; cursor: pointer; }
+    .apply { background: #f5a024; color: #1f1405; padding: 6px 12px; font-weight: 500; }
+    .apply:hover { background: #d9820f; }
     .apply:disabled { opacity: 0.45; cursor: default; }
-    .clear { background: transparent; color: #d1d5db; width: 28px; height: 28px; }
+    .clear { background: transparent; color: #93acbf; width: 28px; height: 28px; }
   `;
 
   const marquee = document.createElement("div");
@@ -161,8 +172,12 @@ export function createEditOverlay(handlers: OverlayHandlers): EditOverlay {
   clear.textContent = "×";
   clear.setAttribute("aria-label", "Clear selection");
 
+  const tag = document.createElement("div");
+  tag.className = "tag";
+  tag.hidden = true;
+
   bar.append(count, input, apply, clear);
-  root.append(style, marquee, chip, bar);
+  root.append(style, marquee, chip, tag, bar);
   document.body.append(host);
 
   let hover: HTMLElement | null = null;
@@ -170,6 +185,26 @@ export function createEditOverlay(handlers: OverlayHandlers): EditOverlay {
 
   function syncApply(): void {
     apply.disabled = input.value.trim() === "";
+  }
+
+  function elementLabel(element: HTMLElement): string {
+    const tagName = element.tagName.toLowerCase();
+    const className = Array.from(element.classList).find((name) => !name.startsWith("sb-edit"));
+    return className === undefined ? tagName : `${tagName}.${className}`;
+  }
+
+  function placeTag(): void {
+    const element = picked[0];
+    if (element === undefined) {
+      tag.hidden = true;
+      return;
+    }
+    tag.textContent = elementLabel(element);
+    tag.hidden = false;
+    const rect = element.getBoundingClientRect();
+    const width = tag.offsetWidth || 72;
+    const height = tag.offsetHeight || 22;
+    placeFixed(tag, rect.top - height - 6, rect.left - 6, width, height);
   }
 
   function placeChip(): void {
@@ -181,8 +216,10 @@ export function createEditOverlay(handlers: OverlayHandlers): EditOverlay {
     chip.hidden = false;
     const width = chip.offsetWidth || 64;
     const height = chip.offsetHeight || 28;
-    const top = rect.top - height - 6 < 8 ? rect.bottom + 6 : rect.top - height - 6;
-    placeFixed(chip, top, rect.right - width, width, height);
+    const inset = 4;
+    const top = rect.height < height ? rect.top : rect.top + inset;
+    const left = rect.width < width ? rect.left : rect.right - width - inset;
+    placeFixed(chip, top, left, width, height);
   }
 
   function placeBar(): void {
@@ -221,7 +258,10 @@ export function createEditOverlay(handlers: OverlayHandlers): EditOverlay {
     placeChip();
     if (picked.length > 0) {
       placeBar();
+      placeTag();
+      return;
     }
+    tag.hidden = true;
   }
 
   chip.addEventListener("click", (event) => {
@@ -290,6 +330,7 @@ export function createEditOverlay(handlers: OverlayHandlers): EditOverlay {
       picked = elements;
       placeBar();
       placeChip();
+      placeTag();
     },
   };
 }
