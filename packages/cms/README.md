@@ -14,6 +14,37 @@ export default {
 
 GET/HEAD page renders are cached in memory by default (stale-while-revalidate, single-flight refresh). Set `cache: false` on the site config, a page, or any block on that page to render every request. Plugin routes and plugin assets are always uncached.
 
+## Quick start
+
+Node.js 20 or newer. This creates a site from the `minimal` theme and starts it with Node:
+
+```bash
+npx stackbox-cms create my-site
+cd my-site
+npm install
+npm start
+```
+
+Open `http://localhost:3000`.
+
+Pick another theme, or list them:
+
+```bash
+npx stackbox-cms create my-site --theme journal
+npx stackbox-cms create --list
+```
+
+Themes included with this package: `minimal` (default), `startup`, `portfolio`, `journal`, `local-business`, `docs`, and `blank`. `blank` is the base project. Each other theme adds its layout, pages, and styles on top. The directory name becomes the site id in `src/site.config.ts`.
+
+### Cloudflare (optional)
+
+The same site can run as a Worker. Build first so plugin files are copied into `public/`:
+
+```bash
+npm run build
+npx wrangler dev
+```
+
 ## Why this exists
 
 Traditional CMSes assume a human clicking around an admin panel. Stackbox inverts that: a site is TypeScript assembled into a fetch handler. Every primitive (`createSiteConfig`, `createSite`, `createTemplate`, `createPage`, `createBlock`) is a typed factory suited for AI to generate, edit, and validate site content as code — and the same files render dynamically at request time.

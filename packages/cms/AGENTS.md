@@ -166,6 +166,8 @@ For a static `public/` directory, run the package build script — it loads the 
 npx stackbox-cms build
 ```
 
+`stackbox-cms create <directory> [--theme <id>]` scaffolds a new site from the themes in `themes/`. `blank` is the base project; other themes overlay layout, pages, and `public/styles.css`. Default theme is `minimal`. `stackbox-cms create --list` prints the theme ids.
+
 ```json
 "scripts": {
   "build": "stackbox-cms build"
