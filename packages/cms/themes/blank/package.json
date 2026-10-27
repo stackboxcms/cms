@@ -7,8 +7,8 @@
     "start": "node --import tsx src/node.ts"
   },
   "dependencies": {
-    "@stackbox/cms": "^0.1.3",
-    "@stackbox/edit-mode-plugin": "^0.1.3"
+    "@stackbox/cms": "^0.1.4",
+    "@stackbox/edit-mode-plugin": "^0.1.6"
   },
   "devDependencies": {
     "tsx": "^4.19.4"

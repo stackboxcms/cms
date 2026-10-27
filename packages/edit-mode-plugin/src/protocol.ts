@@ -1,7 +1,7 @@
 export const EDIT_PAGE_SOURCE = "stackbox-edit";
 export const EDITOR_APP_SOURCE = "stackbox-editor";
 export const EDIT_SCRIPT_PATH = "/_sb/plugins/sb-edit/edit.js";
-export const EDIT_PLUGIN_VERSION = "0.1.5";
+export const EDIT_PLUGIN_VERSION = "0.1.6";
 
 export type EditMode = "off" | "elements" | "chat";
 

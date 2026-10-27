@@ -25,7 +25,7 @@ Before adding features, read `node_modules/@stackbox/cms/dist/AGENTS.md` for the
 - Keep `src/server.ts` as the site entry. Do not rename it.
 - Keep `package.json` `"build"` as `stackbox-cms build --publicDir public`.
 - Keep `wrangler.jsonc` `main` as `src/server.ts`, `assets.directory` as `./public`, and `nodejs_compat` in `compatibility_flags`. Do not add a wrangler `alias` for `@stackbox/cms` or `@stackbox/edit-mode-plugin`.
-- Keep `@stackbox/cms` at `^0.1.3`. Use the latest stable version of `@stackbox/edit-mode-plugin`. You may update those two packages and `nodejs_compat` when upgrading.
+- Keep `@stackbox/cms` at `^0.1.4`. Use the latest stable version of `@stackbox/edit-mode-plugin`. You may update those two packages and `nodejs_compat` when upgrading.
 - Do not add other npm dependencies unless the user explicitly asks.
 - Keep the `@stackbox/edit-mode-plugin` registration in `src/server.ts` as `editPlugin()`. Do not reimplement edit behavior.
 - There is no shell. Do not claim to run bash, npm, git, or wrangler.
