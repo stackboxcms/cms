@@ -1,3 +1,5 @@
+import { speechSupported, startDictation } from "./speech.js";
+
 export interface OverlayRect {
   top: number;
   left: number;
@@ -128,6 +130,25 @@ export function createEditOverlay(handlers: OverlayHandlers): EditOverlay {
       user-select: text;
     }
     .bar input::placeholder { color: #93acbf; }
+    .field { position: relative; display: flex; }
+    .field.has-mic input { padding-right: 36px; }
+    .mic {
+      position: absolute;
+      top: 50%;
+      right: 4px;
+      display: grid;
+      place-items: center;
+      width: 28px;
+      height: 28px;
+      border: 0;
+      border-radius: 14px;
+      background: transparent;
+      color: #93acbf;
+      cursor: pointer;
+      transform: translateY(-50%);
+    }
+    .mic:hover { color: #e8f1f7; }
+    .mic[aria-pressed="true"] { color: #f87171; }
     .apply, .clear { border: 0; border-radius: 6px; cursor: pointer; }
     .apply { background: #f5a024; color: #1f1405; padding: 6px 12px; font-weight: 500; }
     .apply:hover { background: #d9820f; }
@@ -160,6 +181,23 @@ export function createEditOverlay(handlers: OverlayHandlers): EditOverlay {
   input.setAttribute("aria-label", "Describe the change");
   input.autocomplete = "off";
 
+  const field = document.createElement("span");
+  field.className = "field";
+  field.append(input);
+
+  const mic = document.createElement("button");
+  mic.type = "button";
+  mic.className = "mic";
+  mic.setAttribute("aria-label", "Dictate");
+  mic.setAttribute("aria-pressed", "false");
+  mic.title = "Dictate";
+  mic.innerHTML =
+    '<svg viewBox="0 0 20 20" width="16" height="16" fill="currentColor" aria-hidden="true"><path d="M10 2a3 3 0 0 0-3 3v5a3 3 0 0 0 6 0V5a3 3 0 0 0-3-3Z"/><path d="M5 9.5a.75.75 0 0 0-1.5 0 6.5 6.5 0 0 0 5.75 6.46V18a.75.75 0 0 0 1.5 0v-2.04A6.5 6.5 0 0 0 16.5 9.5a.75.75 0 0 0-1.5 0 5 5 0 0 1-10 0Z"/></svg>';
+  if (speechSupported()) {
+    field.classList.add("has-mic");
+    field.append(mic);
+  }
+
   const apply = document.createElement("button");
   apply.type = "submit";
   apply.className = "apply";
@@ -176,9 +214,40 @@ export function createEditOverlay(handlers: OverlayHandlers): EditOverlay {
   tag.className = "tag";
   tag.hidden = true;
 
-  bar.append(count, input, apply, clear);
+  bar.append(count, field, apply, clear);
   root.append(style, marquee, chip, tag, bar);
   document.body.append(host);
+
+  let stopDictation: (() => void) | null = null;
+
+  function setListening(listening: boolean): void {
+    mic.setAttribute("aria-pressed", String(listening));
+    mic.setAttribute("aria-label", listening ? "Stop dictation" : "Dictate");
+    mic.title = listening ? "Stop dictation" : "Dictate";
+  }
+
+  function endDictation(): void {
+    stopDictation?.();
+  }
+
+  function toggleDictation(): void {
+    if (stopDictation !== null) {
+      endDictation();
+      return;
+    }
+    const base = input.value.trimEnd();
+    stopDictation = startDictation(
+      (spoken) => {
+        input.value = base === "" ? spoken : `${base} ${spoken}`.trimEnd();
+        syncApply();
+      },
+      () => {
+        stopDictation = null;
+        setListening(false);
+      },
+    );
+    setListening(stopDictation !== null);
+  }
 
   let hover: HTMLElement | null = null;
   let picked: readonly HTMLElement[] = [];
@@ -224,6 +293,7 @@ export function createEditOverlay(handlers: OverlayHandlers): EditOverlay {
 
   function placeBar(): void {
     if (picked.length === 0) {
+      endDictation();
       bar.hidden = true;
       input.value = "";
       syncApply();
@@ -288,9 +358,15 @@ export function createEditOverlay(handlers: OverlayHandlers): EditOverlay {
     event.stopPropagation();
     handlers.onClear();
   });
+  mic.addEventListener("click", (event) => {
+    event.preventDefault();
+    event.stopPropagation();
+    toggleDictation();
+  });
   bar.addEventListener("submit", (event) => {
     event.preventDefault();
     event.stopPropagation();
+    endDictation();
     handlers.onPrompt(input.value);
   });
   window.addEventListener("resize", reposition);
@@ -298,6 +374,7 @@ export function createEditOverlay(handlers: OverlayHandlers): EditOverlay {
 
   return {
     destroy() {
+      endDictation();
       window.removeEventListener("resize", reposition);
       document.removeEventListener("scroll", reposition, true);
       host.remove();
