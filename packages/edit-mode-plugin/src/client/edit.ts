@@ -235,6 +235,10 @@ function elementFromTarget(target: EventTarget | null): HTMLElement | null {
   return null;
 }
 
+function noteEditing(active: boolean): void {
+  postToApp({ active, type: "editing" });
+}
+
 function commitEdit(): void {
   const current = editing;
   if (current === null || current.cancelled) {
@@ -244,16 +248,16 @@ function commitEdit(): void {
   editing = null;
   current.element.contentEditable = "false";
   const after = current.element.textContent ?? "";
-  if (after === current.before) {
-    return;
+  if (after !== current.before) {
+    postToApp({
+      after: { text: after },
+      before: { text: current.before },
+      context: contextFor(current.element),
+      editType: "text",
+      type: "edit",
+    });
   }
-  postToApp({
-    after: { text: after },
-    before: { text: current.before },
-    context: contextFor(current.element),
-    editType: "text",
-    type: "edit",
-  });
+  noteEditing(false);
 }
 
 function cancelEdit(): void {
@@ -265,6 +269,7 @@ function cancelEdit(): void {
   editing = null;
   current.element.textContent = current.before;
   current.element.contentEditable = "false";
+  noteEditing(false);
 }
 
 function beginEdit(element: HTMLElement): void {
@@ -273,6 +278,7 @@ function beginEdit(element: HTMLElement): void {
   }
   const before = element.textContent ?? "";
   editing = { before, cancelled: false, element };
+  noteEditing(true);
   clearHover();
   setSelected([]);
   element.contentEditable = "true";
@@ -472,7 +478,14 @@ function onPointerUp(event: PointerEvent): void {
 
 function onPointerDown(event: PointerEvent): void {
   suppressClick = false;
-  if (mode !== "elements" || editing !== null || event.button !== 0 || drag !== null) {
+  if (editing !== null) {
+    if (!event.composedPath().includes(editing.element)) {
+      suppressClick = true;
+      commitEdit();
+    }
+    return;
+  }
+  if (mode !== "elements" || event.button !== 0 || drag !== null) {
     return;
   }
   if (overlay?.isOverlayEvent(event) === true) {
@@ -626,10 +639,34 @@ function onKeyDown(event: KeyboardEvent): void {
   }
 }
 
-function onBlur(event: FocusEvent): void {
-  if (editing !== null && event.target === editing.element) {
+function onFocusOut(event: FocusEvent): void {
+  const current = editing;
+  if (current === null || event.target !== current.element) {
+    return;
+  }
+  const next = event.relatedTarget;
+  if (next instanceof Node && current.element.contains(next)) {
+    return;
+  }
+  commitEdit();
+}
+
+function onPageHide(): void {
+  if (editing !== null) {
     commitEdit();
   }
+}
+
+function onWindowBlur(): void {
+  const current = editing;
+  if (current === null) {
+    return;
+  }
+  requestAnimationFrame(() => {
+    if (editing === current && document.activeElement !== current.element) {
+      commitEdit();
+    }
+  });
 }
 
 function onDragStart(event: DragEvent): void {
@@ -676,6 +713,9 @@ function boot(): void {
   });
   rewriteTree(document);
   const observer = new MutationObserver((records) => {
+    if (editing !== null && !editing.element.isConnected) {
+      commitEdit();
+    }
     for (const record of records) {
       for (const node of Array.from(record.addedNodes)) {
         if (node instanceof Element) {
@@ -691,7 +731,9 @@ function boot(): void {
   document.addEventListener("pointerdown", onPointerDown, true);
   document.addEventListener("click", onClick, true);
   document.addEventListener("keydown", onKeyDown);
-  document.addEventListener("focusout", onBlur);
+  document.addEventListener("focusout", onFocusOut);
+  window.addEventListener("blur", onWindowBlur);
+  window.addEventListener("pagehide", onPageHide);
   document.addEventListener("dragstart", onDragStart);
   postToApp({ page: pageInfo(), type: "ready", version: EDIT_PLUGIN_VERSION });
   postToApp(helloPayload());
